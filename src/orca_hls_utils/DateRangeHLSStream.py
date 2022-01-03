@@ -47,6 +47,7 @@ class DateRangeHLSStream():
         self.start_unix_time = start_unix_time
         self.end_unix_time = end_unix_time
         self.wav_dir = wav_dir
+        self.overwrite_ouput = overwrite_output
         self.real_time = real_time
         self.is_end_of_stream = False
 
