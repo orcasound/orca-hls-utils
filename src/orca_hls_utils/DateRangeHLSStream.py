@@ -145,7 +145,7 @@ class DateRangeHLSStream():
         # read the concatenated .ts and write to wav
         stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
         stream = ffmpeg.output(stream, wav_file_path)
-        ffmpeg.run(stream, overwrite_ouput=self.overwrite_output, quiet=False)
+        ffmpeg.run(stream, overwrite_output=self.overwrite_output, quiet=False)
 
         # clear the tmp_path
         os.system(f'rm -rf {tmp_path}')
