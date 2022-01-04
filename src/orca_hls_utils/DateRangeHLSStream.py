@@ -33,6 +33,7 @@ class DateRangeHLSStream():
     start_unix_time
     end_unix_time
     wav_dir
+    overwrite_output: allows ffmpeg to overwrite output, default is False
     real_time = if False, get data as soon as possible, if true wait for polling interval before pulling
     """
 
