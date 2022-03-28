@@ -33,10 +33,11 @@ class DateRangeHLSStream():
     start_unix_time
     end_unix_time
     wav_dir
+    overwrite_output: allows ffmpeg to overwrite output, default is False
     real_time = if False, get data as soon as possible, if true wait for polling interval before pulling
     """
 
-    def __init__(self, stream_base, polling_interval, start_unix_time, end_unix_time, wav_dir, real_time=False):
+    def __init__(self, stream_base, polling_interval, start_unix_time, end_unix_time, wav_dir, overwrite_output=False, real_time=False):
         """
 
         """
@@ -47,6 +48,7 @@ class DateRangeHLSStream():
         self.start_unix_time = start_unix_time
         self.end_unix_time = end_unix_time
         self.wav_dir = wav_dir
+        self.overwrite_output = overwrite_output
         self.real_time = real_time
         self.is_end_of_stream = False
 
@@ -144,7 +146,7 @@ class DateRangeHLSStream():
         # read the concatenated .ts and write to wav
         stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
         stream = ffmpeg.output(stream, wav_file_path)
-        ffmpeg.run(stream, quiet=False)
+        ffmpeg.run(stream, overwrite_output=self.overwrite_output, quiet=False)
 
         # clear the tmp_path
         os.system(f'rm -rf {tmp_path}')
