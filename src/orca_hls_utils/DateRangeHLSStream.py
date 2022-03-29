@@ -103,7 +103,7 @@ class DateRangeHLSStream():
             (self.stream_base), (current_folder))
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
-        target_duration = sum([item.duration for item in stream_obj.segments])/len(num_total_segments)
+        target_duration = sum([item.duration for item in stream_obj.segments])/num_total_segments
         num_segments_in_wav_duration = math.ceil(self.polling_interval_in_seconds/target_duration)
 
         # calculate the start index by computing the current time - start of current folder
