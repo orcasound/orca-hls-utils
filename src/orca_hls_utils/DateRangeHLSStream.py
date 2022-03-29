@@ -107,7 +107,7 @@ class DateRangeHLSStream():
         num_segments_in_wav_duration = math.ceil(self.polling_interval_in_seconds/target_duration)
 
         # calculate the start index by computing the current time - start of current folder
-        segment_start_index = math.ceil(datetime_utils.get_difference_between_times_in_seconds(self.current_clip_start_time, current_folder)/stream_obj.target_duration)
+        segment_start_index = math.ceil(datetime_utils.get_difference_between_times_in_seconds(self.current_clip_start_time, current_folder)/target_duration)
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
