@@ -33,10 +33,11 @@ class DateRangeHLSStream():
     start_unix_time
     end_unix_time
     wav_dir
+    overwrite_output: allows ffmpeg to overwrite output, default is False
     real_time = if False, get data as soon as possible, if true wait for polling interval before pulling
     """
 
-    def __init__(self, stream_base, polling_interval, start_unix_time, end_unix_time, wav_dir, real_time=False):
+    def __init__(self, stream_base, polling_interval, start_unix_time, end_unix_time, wav_dir, overwrite_output=False, real_time=False):
         """
 
         """
@@ -47,6 +48,7 @@ class DateRangeHLSStream():
         self.start_unix_time = start_unix_time
         self.end_unix_time = end_unix_time
         self.wav_dir = wav_dir
+        self.overwrite_output = overwrite_output
         self.real_time = real_time
         self.is_end_of_stream = False
 
@@ -101,10 +103,11 @@ class DateRangeHLSStream():
             (self.stream_base), (current_folder))
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
-        num_segments_in_wav_duration = math.ceil(self.polling_interval_in_seconds/stream_obj.target_duration)
+        target_duration = sum([item.duration for item in stream_obj.segments])/num_total_segments
+        num_segments_in_wav_duration = math.ceil(self.polling_interval_in_seconds/target_duration)
 
         # calculate the start index by computing the current time - start of current folder
-        segment_start_index = math.ceil(datetime_utils.get_difference_between_times_in_seconds(self.current_clip_start_time, current_folder)/stream_obj.target_duration)
+        segment_start_index = math.ceil(datetime_utils.get_difference_between_times_in_seconds(self.current_clip_start_time, current_folder)/target_duration)
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
@@ -144,7 +147,7 @@ class DateRangeHLSStream():
         # read the concatenated .ts and write to wav
         stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
         stream = ffmpeg.output(stream, wav_file_path)
-        ffmpeg.run(stream, quiet=False)
+        ffmpeg.run(stream, overwrite_output=self.overwrite_output, quiet=False)
 
         # clear the tmp_path
         os.system(f'rm -rf {tmp_path}')
