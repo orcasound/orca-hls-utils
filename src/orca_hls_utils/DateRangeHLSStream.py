@@ -1,23 +1,20 @@
-
-from . import s3_utils
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-
-import m3u8
+# Native imports
 import math
-from . import scraper
-import ffmpeg
 import os
 from datetime import datetime
-from datetime import timedelta
-from pytz import timezone
 import time
-import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import shutil
-from . import datetime_utils
+
+# Required imports
+import ffmpeg
+import m3u8
+from pytz import timezone
+
+# Local imports
+from . import s3_utils, datetime_utils, scraper
+
 
 def get_readable_clipname(hydrophone_id, cliptime_utc):
     # cliptime is of the form 2020-09-27T00/16/55.677242Z
