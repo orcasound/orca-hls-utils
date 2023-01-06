@@ -20,11 +20,12 @@ def get_readable_clipname(hydrophone_id, cliptime_utc):
     # cliptime is of the form 2020-09-27T00/16/55.677242Z
     cliptime_utc = timezone('UTC').localize(cliptime_utc)
     date = cliptime_utc.astimezone(timezone('US/Pacific'))
-    date_format='%Y_%m_%d_%H_%M_%S_%Z'
+    date_format = '%Y_%m_%d_%H_%M_%S_%Z'
     clipname = date.strftime(date_format)
     return hydrophone_id + "_" + clipname, date
 
-#TODO: Handle date ranges that don't exist
+
+# TODO: Handle date ranges that don't exist
 class DateRangeHLSStream():
     """
     stream_base = 'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab'
@@ -66,7 +67,7 @@ class DateRangeHLSStream():
         self.folder_name = tokens[1]
         prefix = self.folder_name + "/hls/"
 
-        # returns folder names corresponding to epochs, this grows as more data is added, we should probably maintain a list of 
+        # returns folder names corresponding to epochs, this grows as more data is added, we should probably maintain a list of
         # hydrophone folders that exist
         all_hydrophone_folders = s3_utils.get_all_folders(self.s3_bucket, prefix=prefix)
         print("Found {} folders in all for hydrophone".format(len(all_hydrophone_folders)))
@@ -98,7 +99,7 @@ class DateRangeHLSStream():
 
             if time_to_sleep > 0:
                 time.sleep(time_to_sleep)
-        
+
         # read in current m3u8 file
         # stream_url for the current AWS folder
         stream_url = "{}/hls/{}/live.m3u8".format(
