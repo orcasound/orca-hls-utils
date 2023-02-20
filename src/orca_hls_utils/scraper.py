@@ -51,10 +51,13 @@ def _get_urls_from_select_button(soup, baseurl):
     return url_dict
 
 
+def getstr(x):
+    return x.string.strip() if x.string is not None else ""
+
+
 def parse_database_page_to_tsv(url, tsvfile):
     baseurl = "/".join(url.split("/", 3)[:-1])
     rows = _get_table_rows(url)
-    getstr = lambda x: x.string.strip() if x.string is not None else ""
 
     with open(tsvfile, "w") as f:
         f.write("name\tlocation\tdate\taudio\tmetadata\n")
@@ -123,7 +126,8 @@ def where_are_the_whales(main_url, save_dir):
             )
 
 
-num_lines = lambda x: sum(1 for line in open(x))
+def num_lines(x):
+    return sum(1 for line in open(x))
 
 
 def fetch_all_metadata(save_dir, whale):
