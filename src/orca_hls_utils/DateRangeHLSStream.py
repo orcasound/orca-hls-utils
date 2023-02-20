@@ -15,6 +15,7 @@ from pytz import timezone
 
 from . import datetime_utils, s3_utils, scraper
 
+
 def get_readable_clipname(hydrophone_id, cliptime_utc):
     # cliptime is of the form 2020-09-27T00/16/55.677242Z
     cliptime_utc = timezone("UTC").localize(cliptime_utc)
@@ -166,7 +167,7 @@ class DateRangeHLSStream:
             )
         )
 
-        # Create tmp path to hold .ts segments   
+        # Create tmp path to hold .ts segments
         with TemporaryDirectory() as tmp_path:
             os.makedirs(tmp_path, exist_ok=True)
 
@@ -183,18 +184,20 @@ class DateRangeHLSStream:
                     print("Skipping", audio_url, ": error.")
 
             # concatentate all .ts files
-            hls_file = os.path.join(tmp_path, Path(clipname+".ts"))
-            with open(hls_file, 'wb') as wfd:
+            hls_file = os.path.join(tmp_path, Path(clipname + ".ts"))
+            with open(hls_file, "wb") as wfd:
                 for f in file_names:
-                    with open(os.path.join(tmp_path, f), 'rb') as fd:
+                    with open(os.path.join(tmp_path, f), "rb") as fd:
                         shutil.copyfileobj(fd, wfd)
 
             # read the concatenated .ts and write to wav
-            audio_file = (clipname+".wav")
+            audio_file = clipname + ".wav"
             wav_file_path = os.path.join(self.wav_dir, audio_file)
             stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
             stream = ffmpeg.output(stream, wav_file_path)
-            ffmpeg.run(stream, overwrite_output=self.overwrite_output, quiet=False)
+            ffmpeg.run(
+                stream, overwrite_output=self.overwrite_output, quiet=False
+            )
 
         # If we're in demo mode, we need to fake timestamps to make it seem
         # like the date range is real-time
