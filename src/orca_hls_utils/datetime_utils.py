@@ -33,7 +33,6 @@ def add_interval_to_unix_time(unix_time, interval_in_seconds):
 
 
 def get_unix_time_from_datetime_utc(dt_utc):
-
     dt_aware = timezone("UTC").localize(dt_utc)
     dt_pst = dt_aware.astimezone(timezone("US/Pacific"))
 
