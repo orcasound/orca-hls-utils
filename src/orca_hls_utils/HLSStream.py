@@ -45,7 +45,6 @@ class HLSStream:
 
     # this function grabs audio from last_end_time to
     def get_next_clip(self, current_clip_end_time):
-
         # if current time < current_clip_end_time, sleep for the difference
         now = datetime.utcnow()
 

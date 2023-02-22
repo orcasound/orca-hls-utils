@@ -102,7 +102,6 @@ class DateRangeHLSStream:
         self.current_clip_start_time = self.start_unix_time
 
     def get_next_clip(self, current_clip_name=None):
-
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
         (
