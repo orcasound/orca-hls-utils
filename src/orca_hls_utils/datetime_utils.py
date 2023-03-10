@@ -35,3 +35,13 @@ def get_unix_time_from_datetime_utc(dt_utc):
     unix_time = int(dt_pst.timestamp())
 
     return unix_time
+
+def get_unix_time_from_datetime_pdt(dt_pst):
+
+    dt_aware = timezone('US/Pacific').localize(dt_pst)
+    dt_utc = dt_aware.astimezone(timezone('UTC'))
+
+    # convert to PST
+    unix_time = int(dt_utc.timestamp())
+
+    return unix_time
