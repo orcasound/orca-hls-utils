@@ -197,7 +197,7 @@ class DateRangeHLSStream:
             stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
             stream = ffmpeg.output(stream, wav_file_path)
             ffmpeg.run(
-                stream, overwrite_output=self.overwrite_output, quiet=False
+                stream, overwrite_output=self.overwrite_output, quiet=True
             )
 
         # If we're in demo mode, we need to fake timestamps to make it seem
