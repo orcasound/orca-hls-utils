@@ -31,6 +31,7 @@ def get_readable_clipname(hydrophone_id, cliptime_utc):
 class DateRangeHLSStream:
     """
     stream_base = 'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab' # noqa
+    stream_base = 'https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_orcasound_lab' # noqa
     polling_interval = 60 sec
     start_unix_time
     end_unix_time
