@@ -31,6 +31,7 @@ def get_readable_clipname(hydrophone_id, cliptime_utc):
 class DateRangeHLSStream:
     """
     stream_base = 'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab' # noqa
+    stream_base = 'https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_orcasound_lab' # noqa
     polling_interval = 60 sec
     start_unix_time
     end_unix_time
@@ -197,7 +198,7 @@ class DateRangeHLSStream:
             stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
             stream = ffmpeg.output(stream, wav_file_path)
             ffmpeg.run(
-                stream, overwrite_output=self.overwrite_output, quiet=False
+                stream, overwrite_output=self.overwrite_output, quiet=True
             )
 
         # If we're in demo mode, we need to fake timestamps to make it seem
