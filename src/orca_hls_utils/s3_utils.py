@@ -48,8 +48,14 @@ def get_folders_between_timestamp(
     bucket_list = [int(bucket) for bucket in bucket_list]
     start_index = 0
     end_index = len(bucket_list) - 1
+    print(start_index)
+    print(bucket_list[-1])
+    print(int(start_time))
     while int(bucket_list[start_index]) < int(start_time):
         start_index += 1
+        if start_index == len(bucket_list):
+            break
+
     while int(bucket_list[end_index]) > int(end_time):
         end_index -= 1
     return bucket_list[start_index - 1 : end_index + 1]
