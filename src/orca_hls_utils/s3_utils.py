@@ -96,7 +96,7 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
         print(f"[ERROR] Could not load playlist for {folder_prefix}: {e}")
         return
 
-    referenced_ts = [seg.uri for seg in playlist.segments if seg.uri.endswith('.ts')]
+    referenced_ts = [seg.uri.split(".")[0][4:] for seg in playlist.segments if seg.uri.endswith('.ts')]
     all_files = list_s3_files(bucket, folder_prefix)
     actual_ts = sorted(f.split("/")[-1].split(".")[0][4:] for f in all_files if f.endswith('.ts'))
 
@@ -116,6 +116,6 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
                 print(f"[DISCREPANCY] {folder_prefix} extra files: {extra_files}")
 
     return {
-        "missing_files": [list(missing_files)],
-        "extra_files": [list(extra_files)],
+        "missing_files": list(missing_files),
+        "extra_files": list(extra_files),
     }
