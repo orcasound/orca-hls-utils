@@ -102,6 +102,7 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
 
     missing_files = set(referenced_ts) - set(actual_ts)
     extra_files = set(actual_ts) - set(referenced_ts)
+    length = len(referenced_ts)
 
     if not len(missing_files | extra_files):
         return False
@@ -118,4 +119,5 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
     return {
         "missing_files": list(missing_files),
         "extra_files": list(extra_files),
+        "length": length,
     }
