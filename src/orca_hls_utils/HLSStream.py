@@ -126,8 +126,9 @@ class HLSStream:
             # we exit and try again after hls polling interval
             None, None, current_clip_end_time
 
+        target_duration = stream_obj.target_duration or 1.0
         min_num_total_segments_required = math.ceil(
-            time_since_folder_start / stream_obj.target_duration
+            time_since_folder_start / target_duration
         )
         segment_start_index = (
             min_num_total_segments_required - num_segments_in_wav_duration + 1
@@ -146,6 +147,8 @@ class HLSStream:
             audio_segment = stream_obj.segments[i]
             base_path = audio_segment.base_uri
             file_name = audio_segment.uri
+            if not file_name:
+                continue
             audio_url = base_path + file_name
             try:
                 scraper.download_from_url(audio_url, tmp_path)

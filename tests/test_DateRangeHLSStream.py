@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from orca_hls_utils.DateRangeHLSStream_bkp import DateRangeHLSStream
+from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 import datetime as dt
 import pytz
 import time
