@@ -68,16 +68,19 @@ def parse_database_page_to_tsv(url, tsvfile):
                 getstr(contents[2]),
                 getstr(contents[3]),
                 urljoin(baseurl, str(contents[4].a["href"])) if contents[4].a else "",  # type: ignore
-                "/".join(
-                    [
-                        url.rsplit("/", 1)[0],
-                        str(contents[5]
-                        .a["href"])  # type: ignore
-                        .split("(")[1]
-                        .split(")")[0]
-                        .replace("'", ""),
-                    ]
-                ) if len(contents) > 5 and contents[5].a else "",  # type: ignore
+                (
+                    "/".join(
+                        [
+                            url.rsplit("/", 1)[0],
+                            str(contents[5].a["href"])  # type: ignore
+                            .split("(")[1]
+                            .split(")")[0]
+                            .replace("'", ""),
+                        ]
+                    )
+                    if len(contents) > 5 and contents[5].a
+                    else ""
+                ),  # type: ignore
             )
             f.write("\t".join([name, loc, date, audio, metadata]) + "\n")
     print("Parsed links for", len(rows), "rows to file:", tsvfile)

@@ -26,16 +26,16 @@ from . import datetime_utils, s3_utils, scraper
 def get_readable_clipname(hydrophone_id, cliptime_utc):
     """
     Convert a UTC datetime to a human-readable clip name with hydrophone ID.
-    
+
     Args:
         hydrophone_id (str): Identifier for the hydrophone (e.g., "rpi-orcasound-lab")
         cliptime_utc (datetime): UTC datetime to convert to clip name
-    
+
     Returns:
         tuple: (clipname (str), date (datetime))
             - clipname: Formatted string like "rpi-orcasound-lab_2020_09_27_00_16_55_PDT"
             - date: Datetime converted to US/Pacific timezone
-    
+
     Example:
         >>> clipname, date = get_readable_clipname("rpi-orcasound-lab", datetime(2020, 9, 27, 7, 16, 55))
         >>> print(clipname)
@@ -52,15 +52,15 @@ def get_readable_clipname(hydrophone_id, cliptime_utc):
 # TODO: Handle date ranges that don't exist
 class DateRangeHLSStream:
     """
-    Main class for processing HLS (HTTP Live Streaming) audio data from Orcasound hydrophones 
+    Main class for processing HLS (HTTP Live Streaming) audio data from Orcasound hydrophones
     within a specified date range.
-    
+
     This class handles:
     - Discovering available audio folders in S3 buckets within date ranges
-    - Downloading and processing HLS segments (.ts files) 
+    - Downloading and processing HLS segments (.ts files)
     - Converting segments to WAV files using FFmpeg
     - Managing real-time vs. batch processing modes
-    
+
     Attributes:
         stream_base (str): Base URL for HLS stream (e.g., 'https://s3-us-west-2.amazonaws.com/streaming-orcasound-net/rpi_orcasound_lab')
         polling_interval_in_seconds (int): Duration of each audio clip in seconds (typically 60)
@@ -85,22 +85,22 @@ class DateRangeHLSStream:
     ):
         """
         Initialize DateRangeHLSStream with stream parameters and discover available data.
-        
+
         Args:
-            stream_base (str): Base URL for HLS stream 
+            stream_base (str): Base URL for HLS stream
             polling_interval (int): Duration of each clip in seconds
             start_unix_time (int): Start timestamp (Unix time)
-            end_unix_time (int): End timestamp (Unix time) 
+            end_unix_time (int): End timestamp (Unix time)
             wav_dir (str): Output directory for WAV files
             overwrite_output (bool, optional): Allow FFmpeg to overwrite files. Defaults to False.
             quiet_ffmpeg (bool, optional): Suppress FFmpeg output. Defaults to False.
             real_time (bool, optional): Enable real-time processing mode. Defaults to False.
-        
+
         Raises:
             IndexError: If no valid folders found in the specified date range
             OSError: If wav_dir cannot be created
             PermissionError: If insufficient permissions to create wav_dir
-        
+
         Side Effects:
             - Creates wav_dir if it doesn't exist
             - Queries S3 to discover available data folders
@@ -124,7 +124,9 @@ class DateRangeHLSStream:
         try:
             Path(self.wav_dir).mkdir(parents=True, exist_ok=True)
         except (OSError, PermissionError) as e:
-            self.logger.error(f"Cannot create wav directory {self.wav_dir}: {e}")
+            self.logger.error(
+                f"Cannot create wav directory {self.wav_dir}: {e}"
+            )
             raise
 
         # query the stream base for all m3u8 files between the timestamps
@@ -158,10 +160,12 @@ class DateRangeHLSStream:
         self.valid_folders = s3_utils.get_folders_between_timestamp(
             all_hydrophone_folders, self.start_unix_time, self.end_unix_time
         )
-        
+
         if not self.valid_folders:
-            raise IndexError(f"No valid folders found in date range {self.start_unix_time} to {self.end_unix_time}")
-        
+            raise IndexError(
+                f"No valid folders found in date range {self.start_unix_time} to {self.end_unix_time}"
+            )
+
         self.logger.info(
             f"Found {len(self.valid_folders)} folders in date range. Starting: {self.valid_folders[0]} - Ending: {self.valid_folders[-1]}"
         )
@@ -172,19 +176,19 @@ class DateRangeHLSStream:
     def process_segment(self, args):
         """
         Download and process a single HLS segment (.ts file) in parallel.
-        
+
         Args:
             args (tuple): Contains (base_path, file_name, tmp_path, logger)
                 - base_path (str): Base URL for the segment
                 - file_name (str): Name of the .ts file to download
                 - tmp_path (str): Temporary directory path for downloads
                 - logger: Logger instance for status messages
-        
+
         Returns:
-            str or None: 
+            str or None:
                 - file_name if download successful
                 - None if download failed
-        
+
         Side Effects:
             - Downloads .ts file to tmp_path
             - Logs debug/warning messages
@@ -202,30 +206,30 @@ class DateRangeHLSStream:
     def get_next_clip(self, current_clip_name=None):
         """
         Retrieve and process the next audio clip from the HLS stream.
-        
+
         This is the main method for sequential clip processing. It:
         1. Loads M3U8 playlist for current time window
         2. Calculates which segments to download
         3. Downloads segments in parallel
         4. Concatenates and converts to WAV format
-        
+
         Args:
             current_clip_name (datetime, optional): For real-time mode, the expected clip time.
                 Used to calculate sleep intervals for real-time processing.
-        
+
         Returns:
             tuple: (wav_file_path, clip_start_time, current_clip_name)
                 - wav_file_path (str): Path to generated WAV file, or None if no data
                 - clip_start_time (str): ISO format timestamp of clip start, or None
                 - current_clip_name (datetime): Processed clip timestamp, or None
-        
+
         Side Effects:
             - Updates internal state (current_folder_index, current_clip_start_time)
             - May sleep in real-time mode
             - Creates temporary files and cleans them up
             - Writes WAV file to wav_dir
             - Sets is_end_of_stream flag when processing complete
-        
+
         Examples:
             # Sequential processing
             while not stream.is_stream_over():
@@ -237,7 +241,7 @@ class DateRangeHLSStream:
         if self.current_folder_index >= len(self.valid_folders):
             self.is_end_of_stream = True
             return None, None, None
-            
+
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
         (
@@ -265,11 +269,13 @@ class DateRangeHLSStream:
         stream_url = "{}/hls/{}/live.m3u8".format(
             (self.stream_base), (current_folder)
         )
-        
+
         try:
             stream_obj = m3u8.load(stream_url)
         except Exception as e:
-            self.logger.error(f"Failed to load m3u8 playlist from {stream_url}: {e}")
+            self.logger.error(
+                f"Failed to load m3u8 playlist from {stream_url}: {e}"
+            )
             # Move to next folder or end stream
             if self.current_folder_index + 1 >= len(self.valid_folders):
                 self.is_end_of_stream = True
@@ -278,11 +284,11 @@ class DateRangeHLSStream:
             if self.current_folder_index >= len(self.valid_folders):
                 self.is_end_of_stream = True
                 return None, None, None
-            self.current_clip_start_time = int(self.valid_folders[
-                self.current_folder_index
-            ])
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
             return None, None, None
-            
+
         num_total_segments = len(stream_obj.segments)
         if num_total_segments == 0:
             # No segments in this folder, try next folder or end stream
@@ -293,16 +299,22 @@ class DateRangeHLSStream:
             if self.current_folder_index >= len(self.valid_folders):
                 self.is_end_of_stream = True
                 return None, None, None
-            self.current_clip_start_time = int(self.valid_folders[
-                self.current_folder_index
-            ])
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
             return None, None, None
-            
+
         # Calculate target duration with protection against zero/None durations
-        durations = [item.duration for item in stream_obj.segments if item.duration and item.duration > 0]
+        durations = [
+            item.duration
+            for item in stream_obj.segments
+            if item.duration and item.duration > 0
+        ]
         if not durations:
             # All segments have zero or None duration, use default
-            self.logger.warning(f"All segments have zero or None duration in {stream_url}, using default 1.0 seconds")
+            self.logger.warning(
+                f"All segments have zero or None duration in {stream_url}, using default 1.0 seconds"
+            )
             target_duration = 1.0
         else:
             target_duration = sum(durations) / len(durations)
@@ -340,9 +352,9 @@ class DateRangeHLSStream:
                 if self.current_folder_index >= len(self.valid_folders):
                     self.is_end_of_stream = True
                     return None, None, None
-                self.current_clip_start_time = int(self.valid_folders[
-                    self.current_folder_index
-                ])
+                self.current_clip_start_time = int(
+                    self.valid_folders[self.current_folder_index]
+                )
                 return None, None, None
 
         # Can get the whole segment so update the clip_start_time for the next
@@ -433,39 +445,41 @@ class DateRangeHLSStream:
     def is_stream_over(self):
         """
         Check if all available data in the date range has been processed.
-        
+
         Returns:
             bool: True if processing is complete, False if more data available
                 - True when current time >= end_unix_time OR is_end_of_stream flag set
                 - False if more clips can be processed
-        
+
         Example:
             while not stream.is_stream_over():
                 wav_path, start_time, clip_name = stream.get_next_clip()
                 # Process clip...
         """
         # returns true or false based on whether the stream is over
-        return (int(self.current_clip_start_time) >= int(self.end_unix_time) or 
-                self.is_end_of_stream)
+        return (
+            int(self.current_clip_start_time) >= int(self.end_unix_time)
+            or self.is_end_of_stream
+        )
 
     def get_all_clips(self):
         """
         Download and process all audio clips in the date range using parallel processing.
-        
+
         This method provides batch processing of all clips rather than sequential processing.
         It's more efficient for large date ranges as it processes multiple folders in parallel.
-        
+
         Returns:
             tuple: (wav_file_paths, clip_start_times)
                 - wav_file_paths (list[str]): List of paths to generated WAV files
                 - clip_start_times (list[str]): List of ISO format timestamps for each clip
-                
+
         Side Effects:
             - Downloads all segments for the entire date range
             - Creates multiple WAV files in wav_dir
             - Uses multiprocessing for parallel folder processing
             - Updates internal stream state
-        
+
         Example:
             wav_paths, start_times = stream.get_all_clips()
             for path, time in zip(wav_paths, start_times):
@@ -500,21 +514,21 @@ class DateRangeHLSStream:
     def download_clips_from_folder(self, args):
         """
         Download and process clips from a single S3 folder (used in parallel processing).
-        
+
         Args:
             args (tuple): Contains processing parameters:
                 - current_clip_start_time (int): Unix timestamp for clip start
                 - segment_start_index (int): First segment index to download
-                - segment_end_index (int): Last segment index to download  
+                - segment_end_index (int): Last segment index to download
                 - stream_obj: M3U8 stream object with segment information
                 - tmp_path (str): Temporary directory for file operations
                 - logger: Logger instance for status messages
-        
+
         Returns:
             tuple: (wav_file_path, clip_start_time)
                 - wav_file_path (str): Path to generated WAV file, or None if failed
                 - clip_start_time (str): ISO format timestamp, or None if failed
-        
+
         Side Effects:
             - Downloads multiple .ts segments from S3
             - Concatenates segments into single file
@@ -560,17 +574,17 @@ class DateRangeHLSStream:
     def concatenate_files(self, file_names, directory, output_file):
         """
         Concatenate multiple .ts segment files into a single file.
-        
+
         Args:
             file_names (list[str]): List of .ts filenames to concatenate
             directory (str): Directory containing the .ts files
             output_file (str): Full path for the concatenated output file
-        
+
         Side Effects:
             - Reads all input .ts files in sequence
             - Writes binary content to output_file
             - Creates output_file in the filesystem
-        
+
         Note:
             This performs simple binary concatenation, which works for MPEG-TS format.
             The files must be compatible segments from the same stream.
@@ -584,22 +598,22 @@ class DateRangeHLSStream:
     def convert_ts_to_wav(self, input_file, clipname):
         """
         Convert a MPEG-TS file to WAV format using FFmpeg.
-        
+
         Args:
             input_file (str): Path to input .ts file
             clipname (str): Base name for output file (without extension)
-        
+
         Returns:
             str: Full path to generated WAV file
-        
+
         Raises:
             Exception: If FFmpeg conversion fails
-        
+
         Side Effects:
             - Creates WAV file in self.wav_dir
             - Uses FFmpeg with configured quiet/overwrite settings
             - On error, copies input file to "ts/badfile.ts" for debugging
-        
+
         Example:
             wav_path = stream.convert_ts_to_wav("/tmp/audio.ts", "clip_001")
             # Creates: {wav_dir}/clip_001.wav
@@ -623,23 +637,23 @@ class DateRangeHLSStream:
     def setup_download_variables(self):
         """
         Pre-calculate segment indices and stream objects for batch processing.
-        
+
         This method analyzes all M3U8 playlists in the date range to determine:
         - Which segments need to be downloaded from each folder
         - Timing calculations for each clip
         - Stream objects for parallel processing
-        
+
         Returns:
             dict: Mapping of folder names to segment information
-                Key (str): Folder timestamp 
+                Key (str): Folder timestamp
                 Value (list): List of tuples containing:
                     - (segment_start_index, segment_end_index, clip_start_time, stream_obj)
-        
+
         Side Effects:
             - Loads all M3U8 playlists in the date range
             - Updates internal state (current_folder_index, current_clip_start_time)
             - Logs progress information
-        
+
         Note:
             This method enables efficient batch processing by pre-calculating
             all the work that needs to be done across the entire date range.
@@ -656,10 +670,16 @@ class DateRangeHLSStream:
             stream_objects.append(stream_obj)
 
             num_total_segments = len(stream_obj.segments)
-            durations = [item.duration for item in stream_obj.segments if item.duration and item.duration > 0]
+            durations = [
+                item.duration
+                for item in stream_obj.segments
+                if item.duration and item.duration > 0
+            ]
             if not durations:
                 # All segments have zero or None duration, use default
-                self.logger.warning(f"All segments have zero or None duration in {stream_url}, using default 1.0 seconds")
+                self.logger.warning(
+                    f"All segments have zero or None duration in {stream_url}, using default 1.0 seconds"
+                )
                 target_duration = 1.0
             else:
                 target_duration = sum(durations) / len(durations)

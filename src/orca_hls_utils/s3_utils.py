@@ -105,7 +105,7 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
         with s3.open(f"s3://{bucket}/{m3u8_key}", "r") as m3u8_file:
             content = m3u8_file.read()
             if isinstance(content, bytes):
-                content = content.decode('utf-8')
+                content = content.decode("utf-8")
             playlist = m3u8.loads(content)
     except Exception as e:
         print(f"[ERROR] Could not load playlist for {folder_prefix}: {e}")
@@ -130,7 +130,7 @@ def verify_playlist(bucket: str, folder_prefix: str, verbose: bool = False):
     if not len(missing_files | extra_files):
         return {
             "missing_files": [],
-            "extra_files": [], 
+            "extra_files": [],
             "length": length,
         }
 

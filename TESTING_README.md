@@ -6,7 +6,7 @@ This directory contains comprehensive test suites for the orca-hls-utils package
 
 The test suite validates:
 - ✅ HLS stream processing and data extraction
-- ✅ S3 bucket operations and file management  
+- ✅ S3 bucket operations and file management
 - ✅ Date/time utilities and conversions
 - ✅ Edge cases and error handling
 - ✅ Data availability scenarios
@@ -19,7 +19,7 @@ The test suite validates:
 Tests the main `DateRangeHLSStream` class for edge cases:
 - **Purpose**: Validates stream initialization with invalid date ranges
 - **Coverage**: Error handling when no data folders exist
-- **Key Tests**: 
+- **Key Tests**:
   - No data available in specified time ranges
   - Proper exception raising for invalid inputs
 
@@ -29,7 +29,7 @@ Tests date/time conversion utilities:
 - **Coverage**: Unix time conversions, clip name generation, time arithmetic
 - **Key Tests**:
   - Unix timestamp to datetime conversions
-  - Clip name generation from timestamps  
+  - Clip name generation from timestamps
   - Time interval calculations
   - Round-trip conversion accuracy
   - Edge cases (negative times, far future dates)
@@ -71,7 +71,7 @@ Tests unusual conditions and error scenarios:
 - **Coverage**: Error handling, boundary conditions, malformed inputs
 - **Key Tests**:
   - Corrupted M3U8 playlists
-  - Zero-duration segments  
+  - Zero-duration segments
   - Future timestamp handling
   - Disk space simulation
   - Network timeout scenarios
@@ -86,7 +86,7 @@ Tests unusual conditions and error scenarios:
 # Full test suite
 python -m pytest tests/ -v
 
-# Quick summary  
+# Quick summary
 python -m pytest tests/ --tb=short
 ```
 
@@ -142,7 +142,7 @@ Some tests are **designed to fail** to validate error handling:
 - `test_DateRangeHLSStream.py`: Tests proper exception raising for invalid date ranges
 - This is **correct behavior**, not actual failures
 
-### File Mocking Issues  
+### File Mocking Issues
 Legacy tests (`test_data_availability_scenarios.py`) have file creation mock problems.
 Use the `_fixed.py` version which properly handles file system mocking.
 
@@ -154,7 +154,7 @@ class TestNewFeature(unittest.TestCase):
     def setUp(self):
         # Test setup
         pass
-        
+
     @mock_aws  # For S3-related tests
     def test_specific_functionality(self):
         # Test implementation
@@ -163,7 +163,7 @@ class TestNewFeature(unittest.TestCase):
 
 ### Best Practices
 1. **Use descriptive test names** explaining what scenario is tested
-2. **Mock external dependencies** (S3, file system) properly  
+2. **Mock external dependencies** (S3, file system) properly
 3. **Test both success and failure paths**
 4. **Include edge cases** and boundary conditions
 5. **Add setup/teardown** for clean test isolation
@@ -184,4 +184,4 @@ python -m pytest tests/ -v -s --tb=long
 python -m pytest tests/ -x
 ```
 
-This test suite ensures the orca-hls-utils package is robust, reliable, and handles real-world scenarios effectively. 
+This test suite ensures the orca-hls-utils package is robust, reliable, and handles real-world scenarios effectively.
