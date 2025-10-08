@@ -103,8 +103,12 @@ class HLSStream:
         # .m3u8 file exists so load it
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
+        target_duration = (
+            sum([item.duration for item in stream_obj.segments])
+            / num_total_segments
+        )
         num_segments_in_wav_duration = math.ceil(
-            self.polling_interval / stream_obj.target_duration
+            self.polling_interval / target_duration
         )
 
         # calculate the start index by computing the current time - start of
@@ -127,7 +131,7 @@ class HLSStream:
             None, None, current_clip_end_time
 
         min_num_total_segments_required = math.ceil(
-            time_since_folder_start / stream_obj.target_duration
+            time_since_folder_start / target_duration
         )
         segment_start_index = (
             min_num_total_segments_required - num_segments_in_wav_duration + 1
