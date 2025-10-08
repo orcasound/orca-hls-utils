@@ -1,7 +1,7 @@
 import glob
 import json
 import os
-import urllib
+import urllib.request
 from os.path import dirname
 from urllib.parse import urljoin
 
@@ -36,12 +36,12 @@ def _geturlsoup(url):
 def _get_table_rows(url, occurence=0):
     response = requests.get(url)
     soup = bs4.BeautifulSoup(response.text, "html.parser")
-    return soup.findAll("table")[occurence].findAll("tr")
+    return soup.find_all("table")[occurence].find_all("tr")  # type: ignore
 
 
 def _get_urls_from_select_button(soup, baseurl):
     url_dict = {}
-    options = soup.findAll("option")
+    options = soup.find_all("option")
     for option in options:
         key = option.string.strip().lower()
         value = "/".join([baseurl, option["value"]])
@@ -62,22 +62,25 @@ def parse_database_page_to_tsv(url, tsvfile):
     with open(tsvfile, "w") as f:
         f.write("name\tlocation\tdate\taudio\tmetadata\n")
         for row in rows[1:]:  # skip title row
-            contents = row.findAll("td")
+            contents = row.find_all("td")  # type: ignore
             name, loc, date, audio, metadata = (
                 getstr(contents[1]),
                 getstr(contents[2]),
                 getstr(contents[3]),
-                urljoin(baseurl, contents[4].a["href"]),
-                "/".join(
-                    [
-                        url.rsplit("/", 1)[0],
-                        contents[5]
-                        .a["href"]
-                        .split("(")[1]
-                        .split(")")[0]
-                        .replace("'", ""),
-                    ]
-                ),
+                urljoin(baseurl, str(contents[4].a["href"])) if contents[4].a else "",  # type: ignore
+                (
+                    "/".join(
+                        [
+                            url.rsplit("/", 1)[0],
+                            str(contents[5].a["href"])  # type: ignore
+                            .split("(")[1]
+                            .split(")")[0]
+                            .replace("'", ""),
+                        ]
+                    )
+                    if len(contents) > 5 and contents[5].a
+                    else ""
+                ),  # type: ignore
             )
             f.write("\t".join([name, loc, date, audio, metadata]) + "\n")
     print("Parsed links for", len(rows), "rows to file:", tsvfile)
@@ -87,13 +90,13 @@ def select_and_get_urls(
     main_url, common_name
 ):  # for fun could be done recursively
     main_soup = _geturlsoup(main_url)
-    select_buttons = main_soup.findAll("select")
+    select_buttons = main_soup.find_all("select")
     # select name get initial page url
     url_dict = _get_urls_from_select_button(
         select_buttons[0], dirname(main_url)
     )
     select_soup = _geturlsoup(url_dict[common_name])
-    select_buttons = select_soup.findAll("select")
+    select_buttons = select_soup.find_all("select")
     return _get_urls_from_select_button(select_buttons[2], dirname(main_url))
 
 
@@ -101,13 +104,14 @@ def get_metadata(mtd_url):
     metadata = {}
     rows = _get_table_rows(mtd_url, 1)
     for row in rows[1:]:
-        contents = row.findAll("td")
-        metadata[contents[0].string.replace(":", "")] = contents[1].string
+        contents = row.find_all("td")  # type: ignore
+        if len(contents) >= 2 and contents[0].string and contents[1].string:  # type: ignore
+            metadata[contents[0].string.replace(":", "")] = contents[1].string  # type: ignore
     return metadata
 
 
 def where_are_the_whales(main_url, save_dir):
-    soup = _geturlsoup(main_url).findAll("select")[0]  # main select drop down
+    soup = _geturlsoup(main_url).find_all("select")[0]  # main select drop down
     ud = _get_urls_from_select_button(soup, dirname(main_url))
     common_names = [
         k for k in ud.keys() if "whale" in k
@@ -166,10 +170,10 @@ def download_all_cuts(save_dir, whale, wav_dir):
     wav_dir = os.path.join("./data/wavcut", whale)
 
     os.makedirs(wav_dir, exist_ok=True)
-    df = pd.read_csv(cuts_tsv, sep="\t")
+    df = pd.read_csv(cuts_tsv, sep="\t")  # type: ignore
 
     # get file
-    for dl_url in tqdm.tqdm(df.audio):
+    for dl_url in tqdm.tqdm(df["audio"]):  # type: ignore
         download_from_url(dl_url, wav_dir)
 
 
