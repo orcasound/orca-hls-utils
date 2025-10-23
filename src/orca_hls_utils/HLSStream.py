@@ -91,7 +91,7 @@ class HLSStream:
         target_duration = round(
             sum([item.duration for item in stream_obj.segments])
             / num_total_segments,
-            3
+            3,
         )
         num_segments_in_wav_duration = math.ceil(
             self.polling_interval / target_duration
@@ -161,10 +161,10 @@ class HLSStream:
         hls_file_path = os.path.join(tmp_path, hls_file)
 
         # Combine .ts files into one .ts file
-        with open(hls_file_path, 'wb') as outfile:
+        with open(hls_file_path, "wb") as outfile:
             for fname in file_names:
                 segment_path = os.path.join(tmp_path, fname)
-                with open(segment_path, 'rb') as infile:
+                with open(segment_path, "rb") as infile:
                     outfile.write(infile.read())
 
         # read the concatenated .ts and write to wav
@@ -174,8 +174,8 @@ class HLSStream:
             ffmpeg.run(stream, quiet=True)
         except ffmpeg.Error as e:
             print("FFmpeg command failed.")
-            print("stdout:", e.stdout.decode('utf8', errors='ignore'))
-            print("stderr:", e.stderr.decode('utf8', errors='ignore'))
+            print("stdout:", e.stdout.decode("utf8", errors="ignore"))
+            print("stderr:", e.stderr.decode("utf8", errors="ignore"))
             raise
 
         # clear the tmp_path
