@@ -114,7 +114,7 @@ class HLSStream:
             # and we do not have enough data for a 1 minute clip + 20 second
             # buffer
             # we exit and try again after hls polling interval
-            None, None, current_clip_end_time
+            return None, None, current_clip_end_time
 
         min_num_total_segments_required = math.ceil(
             time_since_folder_start / target_duration
@@ -124,13 +124,8 @@ class HLSStream:
         )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
-        # Compute nominal start time
-        start_seconds = segment_start_index * target_duration + int(stream_id)
-        start_pst = datetime.fromtimestamp(start_seconds)
-
         # Compute nominal end time
         end_seconds = segment_end_index * target_duration + int(stream_id)
-        end_pst = datetime.fromtimestamp(end_seconds)
         end_utc = datetime.utcfromtimestamp(end_seconds)
         current_clip_end_time = end_utc
 
