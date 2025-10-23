@@ -1,6 +1,7 @@
 # HLSStream class
 import math
 import os
+import shutil
 import time
 import urllib.request
 from datetime import datetime, timedelta
@@ -52,24 +53,8 @@ class HLSStream:
         # properly
         time_to_sleep = (current_clip_end_time - now).total_seconds() + 10
 
-        if time_to_sleep < 10:
-            # This implies that we took more than polling interval seconds to
-            #  do our processing.
-            # Ideally, we should set current_clip_end_time = now at this point
-            current_clip_end_time = now
-            time.sleep(10)
-
-            print("Fell behind now so fast forwarding current_clip_end_time")
-        else:
-            # In steady state, time_to_sleep is ~41 seconds
-            # the very first time, it's ~20 seconds
+        if time_to_sleep > 0:
             time.sleep(time_to_sleep)
-
-        current_clip_start_time = current_clip_end_time - timedelta(0, 60)
-        clip_start_time = current_clip_start_time.isoformat() + "Z"
-        clipname, _ = get_readable_clipname(
-            self.hydrophone_id, current_clip_start_time
-        )
 
         # get latest AWS bucket
         print("Listening to location {loc}".format(loc=self.stream_base))
@@ -103,9 +88,10 @@ class HLSStream:
         # .m3u8 file exists so load it
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
-        target_duration = (
+        target_duration = round(
             sum([item.duration for item in stream_obj.segments])
-            / num_total_segments
+            / num_total_segments,
+            3,
         )
         num_segments_in_wav_duration = math.ceil(
             self.polling_interval / target_duration
@@ -128,15 +114,20 @@ class HLSStream:
             # and we do not have enough data for a 1 minute clip + 20 second
             # buffer
             # we exit and try again after hls polling interval
-            None, None, current_clip_end_time
+            return None, None, current_clip_end_time
 
         min_num_total_segments_required = math.ceil(
             time_since_folder_start / target_duration
         )
         segment_start_index = (
-            min_num_total_segments_required - num_segments_in_wav_duration + 1
+            min_num_total_segments_required - num_segments_in_wav_duration
         )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
+
+        # Compute nominal end time
+        end_seconds = segment_end_index * target_duration + int(stream_id)
+        end_utc = datetime.utcfromtimestamp(end_seconds)
+        current_clip_end_time = end_utc
 
         if segment_end_index > num_total_segments:
             return None, None, current_clip_end_time
@@ -157,23 +148,38 @@ class HLSStream:
             except Exception:
                 print("Skipping", audio_url, ": error.")
 
+        current_clip_start_time = current_clip_end_time - timedelta(0, 60)
+        clip_start_time = current_clip_start_time.isoformat() + "Z"
+        clipname, _ = get_readable_clipname(
+            self.hydrophone_id, current_clip_start_time
+        )
+
         # concatentate all .ts files with ffmpeg
         hls_file = clipname + ".ts"
         audio_file = clipname + ".wav"
         wav_file_path = os.path.join(self.wav_dir, audio_file)
-        filenames_str = " ".join(file_names)
-        concat_ts_cmd = "cd {tp} && cat {fstr} > {hls_file}".format(
-            tp=tmp_path, fstr=filenames_str, hls_file=hls_file
-        )
-        os.system(concat_ts_cmd)
+        hls_file_path = os.path.join(tmp_path, hls_file)
+
+        # Combine .ts files into one .ts file
+        with open(hls_file_path, "wb") as outfile:
+            for fname in file_names:
+                segment_path = os.path.join(tmp_path, fname)
+                with open(segment_path, "rb") as infile:
+                    outfile.write(infile.read())
 
         # read the concatenated .ts and write to wav
-        stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
-        stream = ffmpeg.output(stream, wav_file_path)
-        ffmpeg.run(stream, quiet=True)
+        try:
+            stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
+            stream = ffmpeg.output(stream, wav_file_path)
+            ffmpeg.run(stream, quiet=True)
+        except ffmpeg.Error as e:
+            print("FFmpeg command failed.")
+            print("stdout:", e.stdout.decode("utf8", errors="ignore"))
+            print("stderr:", e.stderr.decode("utf8", errors="ignore"))
+            raise
 
         # clear the tmp_path
-        os.system(f"rm -rf {tmp_path}")
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
         return wav_file_path, clip_start_time, current_clip_end_time
 
