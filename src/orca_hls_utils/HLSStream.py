@@ -1,6 +1,7 @@
 # HLSStream class
 import math
 import os
+import shutil
 import time
 import urllib.request
 from datetime import datetime, timedelta
@@ -45,31 +46,18 @@ class HLSStream:
 
     # this function grabs audio from last_end_time to
     def get_next_clip(self, current_clip_end_time):
+        print("DEBUG get_next_clip() current_clip_end_time         : ", current_clip_end_time)
         # if current time < current_clip_end_time, sleep for the difference
         now = datetime.utcnow()
+        print("DEBUG get_next_clip() now                           : ", now)
 
         # the extra 10 seconds to sleep is to download the last .ts segment
         # properly
         time_to_sleep = (current_clip_end_time - now).total_seconds() + 10
 
-        if time_to_sleep < 10:
-            # This implies that we took more than polling interval seconds to
-            #  do our processing.
-            # Ideally, we should set current_clip_end_time = now at this point
-            current_clip_end_time = now
-            time.sleep(10)
-
-            print("Fell behind now so fast forwarding current_clip_end_time")
-        else:
-            # In steady state, time_to_sleep is ~41 seconds
-            # the very first time, it's ~20 seconds
+        if time_to_sleep > 0:
+            print("DEBUG get_next_clip() time_to_sleep                 : ", time_to_sleep)
             time.sleep(time_to_sleep)
-
-        current_clip_start_time = current_clip_end_time - timedelta(0, 60)
-        clip_start_time = current_clip_start_time.isoformat() + "Z"
-        clipname, _ = get_readable_clipname(
-            self.hydrophone_id, current_clip_start_time
-        )
 
         # get latest AWS bucket
         print("Listening to location {loc}".format(loc=self.stream_base))
@@ -80,6 +68,7 @@ class HLSStream:
             .decode("utf-8")
             .replace("\n", "")
         )
+        print("DEBUG get_next_clip() stream_id                     : ", stream_id)
 
         # stream_url for the current AWS bucket
         stream_url = "{}/hls/{}/live.m3u8".format(
@@ -103,10 +92,13 @@ class HLSStream:
         # .m3u8 file exists so load it
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
-        target_duration = (
+        print("DEBUG get_next_clip() num_total_segments            : ", num_total_segments)
+        target_duration = round(
             sum([item.duration for item in stream_obj.segments])
-            / num_total_segments
+            / num_total_segments,
+            3
         )
+        print("DEBUG get_next_clip() target_duration               : ", target_duration)
         num_segments_in_wav_duration = math.ceil(
             self.polling_interval / target_duration
         )
@@ -118,11 +110,13 @@ class HLSStream:
                 current_clip_end_time
             )
         )
+        print("DEBUG get_next_clip() current_clip_end_time_unix_pst: ", current_clip_end_time_unix_pst)
         time_since_folder_start = (
             datetime_utils.get_difference_between_times_in_seconds(
                 current_clip_end_time_unix_pst, stream_id
             )
         )
+        print("DEBUG get_next_clip() time_since_folder_start       : ", time_since_folder_start)
         if time_since_folder_start < self.polling_interval + 20:
             # This implies that possibly a new folder was created
             # and we do not have enough data for a 1 minute clip + 20 second
@@ -130,15 +124,35 @@ class HLSStream:
             # we exit and try again after hls polling interval
             None, None, current_clip_end_time
 
+        print("DEBUG get_next_clip() fraction                      : ", (time_since_folder_start / target_duration))
         min_num_total_segments_required = math.ceil(
             time_since_folder_start / target_duration
         )
+        print("DEBUG get_next_clip() num_num_total_segments_required: ", min_num_total_segments_required)
         segment_start_index = (
-            min_num_total_segments_required - num_segments_in_wav_duration + 1
+            min_num_total_segments_required - num_segments_in_wav_duration
         )
+        print("DEBUG get_next_clip() segment_start_index           : ", segment_start_index)
         segment_end_index = segment_start_index + num_segments_in_wav_duration
+        print("DEBUG get_next_clip() segment_end_index             : ", segment_end_index)
+
+        # Compute nominal start time
+        start_seconds = segment_start_index * target_duration + int(stream_id)
+        print("DEBUG get_next_clip() start_seconds                 : ", start_seconds)
+        start_pst = datetime.fromtimestamp(start_seconds)
+        print("DEBUG get_next_clip() start_pst                     : ", start_pst)
+
+        # Compute nominal end time
+        end_seconds = segment_end_index * target_duration + int(stream_id)
+        print("DEBUG get_next_clip() end_seconds                   : ", end_seconds)
+        end_pst = datetime.fromtimestamp(end_seconds)
+        print("DEBUG get_next_clip() end_pst                       : ", end_pst)
+        end_utc = datetime.utcfromtimestamp(end_seconds)
+        print("DEBUG get_next_clip() end_utc                       : ", end_utc)
+        current_clip_end_time = end_utc
 
         if segment_end_index > num_total_segments:
+            print("DEBUG not enough segments")
             return None, None, current_clip_end_time
 
         # Create tmp path to hold .ts segments
@@ -157,23 +171,46 @@ class HLSStream:
             except Exception:
                 print("Skipping", audio_url, ": error.")
 
+        current_clip_start_time = current_clip_end_time - timedelta(0, 60)
+        print("DEBUG get_next_clip() current_clip_end_time         : ", current_clip_end_time)
+        clip_start_time = current_clip_start_time.isoformat() + "Z"
+        print("DEBUG get_next_clip() clip_start_time               : ", clip_start_time)
+        clipname, _ = get_readable_clipname(
+            self.hydrophone_id, current_clip_start_time
+        )
+        print("DEBUG get_next_clip() clipname                      : ", clipname)
+
         # concatentate all .ts files with ffmpeg
         hls_file = clipname + ".ts"
         audio_file = clipname + ".wav"
         wav_file_path = os.path.join(self.wav_dir, audio_file)
-        filenames_str = " ".join(file_names)
-        concat_ts_cmd = "cd {tp} && cat {fstr} > {hls_file}".format(
-            tp=tmp_path, fstr=filenames_str, hls_file=hls_file
-        )
-        os.system(concat_ts_cmd)
+        hls_file_path = os.path.join(tmp_path, hls_file)
+
+        # Combine .ts files into one .ts file
+        print("DEBUG get_next_clip() datetime.utcnow()             : ", datetime.utcnow())
+        with open(hls_file_path, 'wb') as outfile:
+            for fname in file_names:
+                segment_path = os.path.join(tmp_path, fname)
+                print("DEBUG get_next_clip() segment_path                  : ", segment_path)
+                with open(segment_path, 'rb') as infile:
+                    outfile.write(infile.read())
+        print("DEBUG get_next_clip() datetime.utcnow()             : ", datetime.utcnow())
 
         # read the concatenated .ts and write to wav
-        stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
-        stream = ffmpeg.output(stream, wav_file_path)
-        ffmpeg.run(stream, quiet=True)
+        print("DEBUG get_next_clip() writing to hls_file           : ", hls_file)
+        try:
+            stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
+            stream = ffmpeg.output(stream, wav_file_path)
+            ffmpeg.run(stream, quiet=True)
+        except ffmpeg.Error as e:
+            print("FFmpeg command failed.")
+            print("stdout:", e.stdout.decode('utf8', errors='ignore'))
+            print("stderr:", e.stderr.decode('utf8', errors='ignore'))
+            raise
 
         # clear the tmp_path
-        os.system(f"rm -rf {tmp_path}")
+        print("DEBUG get_next_clip() clearing the tmp_path         : ", tmp_path)
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
         return wav_file_path, clip_start_time, current_clip_end_time
 
