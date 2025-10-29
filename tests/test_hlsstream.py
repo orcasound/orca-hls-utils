@@ -220,13 +220,15 @@ def test_time_edge_cases():
             )
             if wav_path is None:
                 print(
-                    "  [PASS] Handled 10 seconds before now "
-                    "(no clip available, no crash)"
+                    "  [FAIL] Expected clip from 10 seconds ago "
+                    "but got None"
                 )
+                sys.exit(1)
             else:
                 print("  [PASS] Retrieved clip from 10 seconds ago")
         except Exception as e:
-            print(f"  [WARNING] Exception with 10 sec before now: {e}")
+            print(f"  [FAIL] Exception with 10 sec before now: {e}")
+            sys.exit(1)
 
         # Test 2: Current time exactly at now
         print("  Testing with timestamp exactly at now...")
@@ -235,23 +237,38 @@ def test_time_edge_cases():
 
         try:
             # This should sleep briefly (10 seconds)
-            # We won't actually wait, just verify it doesn't crash
-            print("  [INFO] This test would sleep ~10 seconds in real usage")
-            print("  [PASS] Timestamp at 'now' handled without crash")
+            wav_path, clip_start, clip_end = stream.get_next_clip(
+                current_clip_end_time
+            )
+            if wav_path is None:
+                print(
+                    "  [WARNING] Timestamp at 'now' returned None "
+                    "(stream may be unavailable)"
+                )
+            else:
+                print(
+                    "  [PASS] Timestamp at 'now' retrieved clip successfully"
+                )
         except Exception as e:
             print(f"  [WARNING] Exception with current time: {e}")
 
         # Test 3: Timestamp in the future
         print("  Testing with timestamp in the future...")
-        current_clip_end_time = datetime.utcnow() + timedelta(minutes=1)
+        current_clip_end_time = datetime.utcnow() + timedelta(seconds=30)
         print(f"    Timestamp: {current_clip_end_time}")
 
         try:
-            print(
-                "  [INFO] This test would sleep ~70 seconds "
-                "in real usage (skipping)"
+            # This should sleep ~40 seconds (30 + 10 buffer)
+            wav_path, clip_start, clip_end = stream.get_next_clip(
+                current_clip_end_time
             )
-            print("  [PASS] Future timestamp would trigger sleep behavior")
+            if wav_path is None:
+                print(
+                    "  [WARNING] Future timestamp returned None "
+                    "(stream may be unavailable)"
+                )
+            else:
+                print("  [PASS] Future timestamp retrieved clip successfully")
         except Exception as e:
             print(f"  [WARNING] Exception with future time: {e}")
 
