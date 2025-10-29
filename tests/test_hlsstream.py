@@ -17,12 +17,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from orca_hls_utils.HLSStream import HLSStream  # noqa: E402
 
 
-def test_hlsstream_initialization():
-    """Test that HLSStream can be initialized with valid parameters."""
-    stream_base = (
-        "https://s3-us-west-2.amazonaws.com/"
-        "audio-orcasound-net/rpi_orcasound_lab"
-    )
+def test_hlsstream_initialization(stream_base):
+    """Test that HLSStream can be initialized with valid parameters.
+
+    Args:
+        stream_base: The base URL for the HLS stream
+    """
     polling_interval = 60  # seconds
     wav_dir = "./test_wav_output"
 
@@ -34,7 +34,9 @@ def test_hlsstream_initialization():
     assert stream.polling_interval == polling_interval
     assert stream.wav_dir == wav_dir
     assert stream.s3_bucket == "audio-orcasound-net"
-    assert stream.hydrophone_id == "rpi_orcasound_lab"
+    # Extract hydrophone_id from stream_base for verification
+    expected_hydrophone_id = stream_base.rstrip("/").split("/")[-1]
+    assert stream.hydrophone_id == expected_hydrophone_id
 
     print("[PASS] HLSStream initialization test passed")
 
@@ -117,12 +119,12 @@ def test_hlsstream_get_next_clip(stream_base):
             print("[PASS] Cleaned up test directory")
 
 
-def test_hlsstream_is_stream_over():
-    """Test that is_stream_over returns False for live streams."""
-    stream_base = (
-        "https://s3-us-west-2.amazonaws.com/"
-        "audio-orcasound-net/rpi_orcasound_lab"
-    )
+def test_hlsstream_is_stream_over(stream_base):
+    """Test that is_stream_over returns False for live streams.
+
+    Args:
+        stream_base: The base URL for the HLS stream
+    """
     polling_interval = 60
     wav_dir = "./test_wav_output"
 
@@ -193,12 +195,12 @@ def test_invalid_stream_urls():
     print("[PASS] Invalid stream URL tests completed")
 
 
-def test_time_edge_cases():
-    """Test edge cases for time handling."""
-    stream_base = (
-        "https://s3-us-west-2.amazonaws.com/"
-        "audio-orcasound-net/rpi_orcasound_lab"
-    )
+def test_time_edge_cases(stream_base):
+    """Test edge cases for time handling.
+
+    Args:
+        stream_base: The base URL for the HLS stream
+    """
     polling_interval = 60
     wav_dir = "./test_wav_output"
 
@@ -301,12 +303,12 @@ def test_time_edge_cases():
     print("[PASS] Time edge case tests completed")
 
 
-def test_sequential_clip_retrieval():
-    """Test multiple get_next_clip calls in sequence."""
-    stream_base = (
-        "https://s3-us-west-2.amazonaws.com/"
-        "audio-orcasound-net/rpi_orcasound_lab"
-    )
+def test_sequential_clip_retrieval(stream_base):
+    """Test multiple get_next_clip calls in sequence.
+
+    Args:
+        stream_base: The base URL for the HLS stream
+    """
     polling_interval = 60
     wav_dir = "./test_wav_output"
 
@@ -424,31 +426,35 @@ def main():
     print("Running HLSStream Tests")
     print("=" * 60)
 
-    print("\nTest 1: Initialization")
-    test_hlsstream_initialization()
-
-    print("\nTest 2: is_stream_over")
-    test_hlsstream_is_stream_over()
-
-    print("\nTest 3: get_next_clip (rpi_orcasound_lab)")
-    test_hlsstream_get_next_clip(
+    # Default stream base for tests
+    default_stream_base = (
         "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/"
         "rpi_orcasound_lab"
     )
-
-    print("\nTest 4: get_next_clip (rpi_north_sjc)")
-    test_hlsstream_get_next_clip(
+    secondary_stream_base = (
         "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
     )
+
+    print("\nTest 1: Initialization")
+    test_hlsstream_initialization(default_stream_base)
+
+    print("\nTest 2: is_stream_over")
+    test_hlsstream_is_stream_over(default_stream_base)
+
+    print("\nTest 3: get_next_clip (rpi_orcasound_lab)")
+    test_hlsstream_get_next_clip(default_stream_base)
+
+    print("\nTest 4: get_next_clip (rpi_north_sjc)")
+    test_hlsstream_get_next_clip(secondary_stream_base)
 
     print("\nTest 5: Invalid stream URLs")
     test_invalid_stream_urls()
 
     print("\nTest 6: Time edge cases")
-    test_time_edge_cases()
+    test_time_edge_cases(default_stream_base)
 
     print("\nTest 7: Sequential clip retrieval")
-    test_sequential_clip_retrieval()
+    test_sequential_clip_retrieval(default_stream_base)
 
     print("\n" + "=" * 60)
     print("All tests completed successfully!")
