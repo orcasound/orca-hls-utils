@@ -9,7 +9,7 @@ from Orcasound hydrophone streams.
 import os
 import shutil
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -63,9 +63,7 @@ def test_hlsstream_get_next_clip():
 
     # Simulate a clip end time from the past (5 minutes ago)
     # This ensures we don't have to wait and there should be data available
-    current_clip_end_time = datetime.now(timezone.utc).replace(
-        tzinfo=None
-    ) - timedelta(minutes=5)
+    current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
 
     print(f"Testing get_next_clip with timestamp: {current_clip_end_time}")
 
