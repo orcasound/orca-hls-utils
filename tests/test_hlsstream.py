@@ -322,52 +322,42 @@ if __name__ == "__main__":
 """
 SUGGESTED ADDITIONAL TEST CASES:
 
-1. Test error handling with invalid stream URLs:
-   - Test with a non-existent S3 bucket
-   - Test with a malformed stream_base URL
-   - Test with an invalid hydrophone ID
-
-2. Test edge cases for time handling:
-   - Test with current_clip_end_time in the future (should sleep)
-   - Test with current_clip_end_time exactly at "now"
-   - Test with very old timestamps (hours or days ago)
-
-3. Test with different polling intervals:
+1. Test with different polling intervals:
    - Test with very short polling_interval (e.g., 10 seconds)
    - Test with longer polling_interval (e.g., 120 seconds)
    - Verify that num_segments_in_wav_duration is calculated correctly
 
-4. Test concurrent clip retrieval:
+2. Test concurrent clip retrieval:
    - Test multiple get_next_clip calls in sequence
    - Verify that clip times don't overlap
    - Test that subsequent calls properly advance the time window
 
-5. Test file system operations:
+3. Test file system operations:
    - Test behavior when wav_dir doesn't have write permissions
    - Test behavior when disk space is low
    - Test cleanup of tmp_path directory after errors
 
-6. Test with mock/stub data:
+4. Test with mock/stub data:
    - Mock the S3 responses to test without network dependencies
    - Create test fixtures with known .m3u8 files
    - Mock ffmpeg operations to test audio conversion handling
 
-7. Test S3 bucket and stream parsing:
+5. Test S3 bucket and stream parsing:
    - Test extraction of s3_bucket and hydrophone_id from various URL formats
    - Test with different AWS regions
    - Test with streaming-orcasound-net vs audio-orcasound-net buckets
 
-8. Test segment handling:
+6. Test segment handling:
    - Test behavior when some .ts segments fail to download
    - Test with incomplete segment lists in .m3u8
    - Test segment_start_index and segment_end_index calculations
 
-9. Integration tests:
+7. Integration tests:
    - Test end-to-end with a known working stream
    - Verify WAV file format and duration
    - Verify audio quality metrics if applicable
 
-10. Performance tests:
+8. Performance tests:
     - Measure time taken for clip retrieval
     - Test memory usage during large clip downloads
     - Test behavior under network latency conditions
