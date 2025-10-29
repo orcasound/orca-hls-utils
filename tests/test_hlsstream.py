@@ -290,7 +290,8 @@ def test_time_edge_cases():
             else:
                 print("  [PASS] Retrieved clip from 6 hours ago")
         except Exception as e:
-            print(f"  [WARNING] Exception with old timestamp: {e}")
+            print(f"  [FAIL] Exception with old timestamp: {e}")
+            sys.exit(1)
 
     finally:
         # Clean up test directory
@@ -337,8 +338,8 @@ def test_sequential_clip_retrieval():
                 print(f"    Start: {clip_start1}, End: {clip_end1}")
                 first_call_success = True
         except Exception as e:
-            print(f"  [WARNING] First call raised exception: {e}")
-            first_call_success = False
+            print(f"  [FAIL] First call raised exception: {e}")
+            sys.exit(1)
 
         # Test 2: Second call should advance the time window
         print("  Testing second get_next_clip call...")
@@ -368,8 +369,8 @@ def test_sequential_clip_retrieval():
                 print(f"    Start: {clip_start2}, End: {clip_end2}")
                 second_call_success = True
         except Exception as e:
-            print(f"  [WARNING] Second call raised exception: {e}")
-            second_call_success = False
+            print(f"  [FAIL] Second call raised exception: {e}")
+            sys.exit(1)
 
         # Test 3: Verify clips don't overlap (if both succeeded)
         if first_call_success and second_call_success:
