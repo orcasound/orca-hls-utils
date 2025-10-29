@@ -35,7 +35,7 @@ def test_hlsstream_initialization():
     assert stream.s3_bucket == "audio-orcasound-net"
     assert stream.hydrophone_id == "rpi_north_sjc"
 
-    print("✓ HLSStream initialization test passed")
+    print("[PASS] HLSStream initialization test passed")
 
 
 def test_hlsstream_get_next_clip(stream_base):
@@ -75,30 +75,36 @@ def test_hlsstream_get_next_clip(stream_base):
         )
 
         if wav_path is None:
-            print("⚠ get_next_clip returned None - this may be expected if:")
+            print(
+                "[WARNING] get_next_clip returned None - "
+                "this may be expected if:"
+            )
             print("  - The stream is temporarily unavailable")
             print("  - There's not enough data yet in the current folder")
             print("  - The .m3u8 file doesn't exist")
             print(f"  Clip end time returned: {clip_end}")
-            print("✓ Test completed (no clip retrieved, but no crash)")
+            print("[PASS] Test completed (no clip retrieved, but no crash)")
             return
 
-        print(f"✓ WAV Path: {wav_path}")
-        print(f"✓ Clip Start: {clip_start}")
-        print(f"✓ Clip End: {clip_end}")
+        print(f"[PASS] WAV Path: {wav_path}")
+        print(f"[PASS] Clip Start: {clip_start}")
+        print(f"[PASS] Clip End: {clip_end}")
 
         # Verify the WAV file was created
         if os.path.exists(wav_path):
             file_size = os.path.getsize(wav_path)
-            print(f"✓ WAV file created successfully (size: {file_size} bytes)")
+            print(
+                f"[PASS] WAV file created successfully "
+                f"(size: {file_size} bytes)"
+            )
         else:
-            print("✗ WAV file was not created")
+            print("[FAIL] WAV file was not created")
             sys.exit(1)
 
-        print("✓ get_next_clip test passed")
+        print("[PASS] get_next_clip test passed")
 
     except Exception as e:
-        print(f"✗ Error during get_next_clip: {e}")
+        print(f"[FAIL] Error during get_next_clip: {e}")
         import traceback
 
         traceback.print_exc()
@@ -107,7 +113,7 @@ def test_hlsstream_get_next_clip(stream_base):
         # Clean up test directory
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
-            print("✓ Cleaned up test directory")
+            print("[PASS] Cleaned up test directory")
 
 
 def test_hlsstream_is_stream_over():
@@ -123,7 +129,7 @@ def test_hlsstream_is_stream_over():
     # For live streams, is_stream_over should always return False
     assert stream.is_stream_over() is False
 
-    print("✓ is_stream_over test passed")
+    print("[PASS] is_stream_over test passed")
 
 
 def main():
