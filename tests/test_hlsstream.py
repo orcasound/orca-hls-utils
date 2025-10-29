@@ -38,16 +38,16 @@ def test_hlsstream_initialization():
     print("✓ HLSStream initialization test passed")
 
 
-def test_hlsstream_get_next_clip():
+def test_hlsstream_get_next_clip(stream_base):
     """
     Test get_next_clip behavior.
 
     This test simulates calling get_next_clip with a past timestamp
     to retrieve available audio data without waiting.
+
+    Args:
+        stream_base: The base URL for the HLS stream
     """
-    stream_base = (
-        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
-    )
     polling_interval = 60  # seconds
     wav_dir = "./test_wav_output"
 
@@ -65,7 +65,8 @@ def test_hlsstream_get_next_clip():
     # This ensures we don't have to wait and there should be data available
     current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
 
-    print(f"Testing get_next_clip with timestamp: {current_clip_end_time}")
+    print(f"Testing get_next_clip with stream: {stream_base}")
+    print(f"  Timestamp: {current_clip_end_time}")
 
     # Call get_next_clip and observe behavior
     try:
@@ -137,8 +138,16 @@ def main():
     print("\nTest 2: is_stream_over")
     test_hlsstream_is_stream_over()
 
-    print("\nTest 3: get_next_clip")
-    test_hlsstream_get_next_clip()
+    print("\nTest 3: get_next_clip (rpi_north_sjc)")
+    test_hlsstream_get_next_clip(
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+    )
+
+    print("\nTest 4: get_next_clip (rpi_orcasound_lab)")
+    test_hlsstream_get_next_clip(
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/"
+        "rpi_orcasound_lab"
+    )
 
     print("\n" + "=" * 60)
     print("All tests completed successfully!")
