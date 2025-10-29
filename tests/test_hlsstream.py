@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""
+Test script for HLSStream.get_next_clip() behavior.
+
+This script tests the basic functionality of the HLSStream class,
+specifically the get_next_clip method which retrieves audio clips
+from Orcasound hydrophone streams.
+"""
+import os
+import shutil
+import sys
+from datetime import datetime, timedelta, timezone
+
+# Add parent directory to path to import the module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from orca_hls_utils.HLSStream import HLSStream  # noqa: E402
+
+
+def test_hlsstream_initialization():
+    """Test that HLSStream can be initialized with valid parameters."""
+    stream_base = (
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+    )
+    polling_interval = 60  # seconds
+    wav_dir = "./test_wav_output"
+
+    # Create HLSStream instance
+    stream = HLSStream(stream_base, polling_interval, wav_dir)
+
+    # Verify that the stream was initialized correctly
+    assert stream.stream_base == stream_base
+    assert stream.polling_interval == polling_interval
+    assert stream.wav_dir == wav_dir
+    assert stream.s3_bucket == "audio-orcasound-net"
+    assert stream.hydrophone_id == "rpi_north_sjc"
+
+    print("✓ HLSStream initialization test passed")
+
+
+def test_hlsstream_get_next_clip():
+    """
+    Test get_next_clip behavior.
+
+    This test simulates calling get_next_clip with a past timestamp
+    to retrieve available audio data without waiting.
+    """
+    stream_base = (
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+    )
+    polling_interval = 60  # seconds
+    wav_dir = "./test_wav_output"
+
+    # Clean up any existing test directory
+    if os.path.exists(wav_dir):
+        shutil.rmtree(wav_dir)
+
+    # Create test directory
+    os.makedirs(wav_dir, exist_ok=True)
+
+    # Create HLSStream instance
+    stream = HLSStream(stream_base, polling_interval, wav_dir)
+
+    # Simulate a clip end time from the past (5 minutes ago)
+    # This ensures we don't have to wait and there should be data available
+    current_clip_end_time = datetime.now(timezone.utc).replace(
+        tzinfo=None
+    ) - timedelta(minutes=5)
+
+    print(f"Testing get_next_clip with timestamp: {current_clip_end_time}")
+
+    # Call get_next_clip and observe behavior
+    try:
+        wav_path, clip_start, clip_end = stream.get_next_clip(
+            current_clip_end_time
+        )
+
+        if wav_path is None:
+            print("⚠ get_next_clip returned None - this may be expected if:")
+            print("  - The stream is temporarily unavailable")
+            print("  - There's not enough data yet in the current folder")
+            print("  - The .m3u8 file doesn't exist")
+            print(f"  Clip end time returned: {clip_end}")
+            print("✓ Test completed (no clip retrieved, but no crash)")
+            return
+
+        print(f"✓ WAV Path: {wav_path}")
+        print(f"✓ Clip Start: {clip_start}")
+        print(f"✓ Clip End: {clip_end}")
+
+        # Verify the WAV file was created
+        if os.path.exists(wav_path):
+            file_size = os.path.getsize(wav_path)
+            print(f"✓ WAV file created successfully (size: {file_size} bytes)")
+        else:
+            print("✗ WAV file was not created")
+            sys.exit(1)
+
+        print("✓ get_next_clip test passed")
+
+    except Exception as e:
+        print(f"✗ Error during get_next_clip: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        # Clean up test directory
+        if os.path.exists(wav_dir):
+            shutil.rmtree(wav_dir)
+            print("✓ Cleaned up test directory")
+
+
+def test_hlsstream_is_stream_over():
+    """Test that is_stream_over returns False for live streams."""
+    stream_base = (
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+    )
+    polling_interval = 60
+    wav_dir = "./test_wav_output"
+
+    stream = HLSStream(stream_base, polling_interval, wav_dir)
+
+    # For live streams, is_stream_over should always return False
+    assert stream.is_stream_over() is False
+
+    print("✓ is_stream_over test passed")
+
+
+def main():
+    """Run all tests."""
+    print("=" * 60)
+    print("Running HLSStream Tests")
+    print("=" * 60)
+
+    print("\nTest 1: Initialization")
+    test_hlsstream_initialization()
+
+    print("\nTest 2: is_stream_over")
+    test_hlsstream_is_stream_over()
+
+    print("\nTest 3: get_next_clip")
+    test_hlsstream_get_next_clip()
+
+    print("\n" + "=" * 60)
+    print("All tests completed successfully!")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
+
+
+"""
+SUGGESTED ADDITIONAL TEST CASES:
+
+1. Test error handling with invalid stream URLs:
+   - Test with a non-existent S3 bucket
+   - Test with a malformed stream_base URL
+   - Test with an invalid hydrophone ID
+
+2. Test edge cases for time handling:
+   - Test with current_clip_end_time in the future (should sleep)
+   - Test with current_clip_end_time exactly at "now"
+   - Test with very old timestamps (hours or days ago)
+
+3. Test with different polling intervals:
+   - Test with very short polling_interval (e.g., 10 seconds)
+   - Test with longer polling_interval (e.g., 120 seconds)
+   - Verify that num_segments_in_wav_duration is calculated correctly
+
+4. Test concurrent clip retrieval:
+   - Test multiple get_next_clip calls in sequence
+   - Verify that clip times don't overlap
+   - Test that subsequent calls properly advance the time window
+
+5. Test file system operations:
+   - Test behavior when wav_dir doesn't have write permissions
+   - Test behavior when disk space is low
+   - Test cleanup of tmp_path directory after errors
+
+6. Test with mock/stub data:
+   - Mock the S3 responses to test without network dependencies
+   - Create test fixtures with known .m3u8 files
+   - Mock ffmpeg operations to test audio conversion handling
+
+7. Test S3 bucket and stream parsing:
+   - Test extraction of s3_bucket and hydrophone_id from various URL formats
+   - Test with different AWS regions
+   - Test with streaming-orcasound-net vs audio-orcasound-net buckets
+
+8. Test segment handling:
+   - Test behavior when some .ts segments fail to download
+   - Test with incomplete segment lists in .m3u8
+   - Test segment_start_index and segment_end_index calculations
+
+9. Integration tests:
+   - Test end-to-end with a known working stream
+   - Verify WAV file format and duration
+   - Verify audio quality metrics if applicable
+
+10. Performance tests:
+    - Measure time taken for clip retrieval
+    - Test memory usage during large clip downloads
+    - Test behavior under network latency conditions
+"""

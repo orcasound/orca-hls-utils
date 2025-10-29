@@ -31,3 +31,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Test artifacts
+test_wav_output/
+tmp_path/
+*.wav
+*.ts
