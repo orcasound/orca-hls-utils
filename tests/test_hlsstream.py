@@ -374,10 +374,11 @@ def test_sequential_clip_retrieval():
                     )
                 else:
                     print(
-                        f"  [WARNING] Clips may overlap: "
+                        f"  [FAIL] Clips overlap: "
                         f"clip1 ends at {clip_end1}, "
                         f"clip2 starts at {start2_dt}"
                     )
+                    sys.exit(1)
             else:
                 print("  [INFO] Could not verify overlap (timestamp formats)")
         else:
