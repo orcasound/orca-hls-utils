@@ -20,7 +20,8 @@ from orca_hls_utils.HLSStream import HLSStream  # noqa: E402
 def test_hlsstream_initialization():
     """Test that HLSStream can be initialized with valid parameters."""
     stream_base = (
-        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+        "https://s3-us-west-2.amazonaws.com/"
+        "audio-orcasound-net/rpi_orcasound_lab"
     )
     polling_interval = 60  # seconds
     wav_dir = "./test_wav_output"
@@ -33,7 +34,7 @@ def test_hlsstream_initialization():
     assert stream.polling_interval == polling_interval
     assert stream.wav_dir == wav_dir
     assert stream.s3_bucket == "audio-orcasound-net"
-    assert stream.hydrophone_id == "rpi_north_sjc"
+    assert stream.hydrophone_id == "rpi_orcasound_lab"
 
     print("[PASS] HLSStream initialization test passed")
 
@@ -119,7 +120,8 @@ def test_hlsstream_get_next_clip(stream_base):
 def test_hlsstream_is_stream_over():
     """Test that is_stream_over returns False for live streams."""
     stream_base = (
-        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
+        "https://s3-us-west-2.amazonaws.com/"
+        "audio-orcasound-net/rpi_orcasound_lab"
     )
     polling_interval = 60
     wav_dir = "./test_wav_output"
@@ -142,7 +144,7 @@ def test_invalid_stream_urls():
     try:
         stream_base = (
             "https://s3-us-west-2.amazonaws.com/"
-            "nonexistent-bucket/rpi_north_sjc"
+            "nonexistent-bucket/rpi_orcasound_lab"
         )
         stream = HLSStream(stream_base, polling_interval, wav_dir)
         current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
@@ -195,7 +197,7 @@ def test_time_edge_cases():
     """Test edge cases for time handling."""
     stream_base = (
         "https://s3-us-west-2.amazonaws.com/"
-        "audio-orcasound-net/rpi_north_sjc"
+        "audio-orcasound-net/rpi_orcasound_lab"
     )
     polling_interval = 60
     wav_dir = "./test_wav_output"
@@ -293,15 +295,15 @@ def main():
     print("\nTest 2: is_stream_over")
     test_hlsstream_is_stream_over()
 
-    print("\nTest 3: get_next_clip (rpi_north_sjc)")
-    test_hlsstream_get_next_clip(
-        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
-    )
-
-    print("\nTest 4: get_next_clip (rpi_orcasound_lab)")
+    print("\nTest 3: get_next_clip (rpi_orcasound_lab)")
     test_hlsstream_get_next_clip(
         "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/"
         "rpi_orcasound_lab"
+    )
+
+    print("\nTest 4: get_next_clip (rpi_north_sjc)")
+    test_hlsstream_get_next_clip(
+        "https://s3-us-west-2.amazonaws.com/audio-orcasound-net/rpi_north_sjc"
     )
 
     print("\nTest 5: Invalid stream URLs")
