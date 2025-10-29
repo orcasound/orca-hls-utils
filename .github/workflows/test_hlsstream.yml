@@ -9,9 +9,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     - name: Checkout code
@@ -22,10 +25,16 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Install ffmpeg
+    - name: Install ffmpeg (Ubuntu)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
+
+    - name: Install ffmpeg (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install ffmpeg -y
 
     - name: Install dependencies
       run: |
