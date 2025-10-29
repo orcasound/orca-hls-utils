@@ -283,7 +283,7 @@ def test_time_edge_cases():
     print("[PASS] Time edge case tests completed")
 
 
-def test_concurrent_clip_retrieval():
+def test_sequential_clip_retrieval():
     """Test multiple get_next_clip calls in sequence."""
     stream_base = (
         "https://s3-us-west-2.amazonaws.com/"
@@ -396,7 +396,7 @@ def test_concurrent_clip_retrieval():
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
 
-    print("[PASS] Concurrent clip retrieval tests completed")
+    print("[PASS] Sequential clip retrieval tests completed")
 
 
 def main():
@@ -428,8 +428,8 @@ def main():
     print("\nTest 6: Time edge cases")
     test_time_edge_cases()
 
-    print("\nTest 7: Concurrent clip retrieval")
-    test_concurrent_clip_retrieval()
+    print("\nTest 7: Sequential clip retrieval")
+    test_sequential_clip_retrieval()
 
     print("\n" + "=" * 60)
     print("All tests completed successfully!")
