@@ -159,7 +159,8 @@ def test_invalid_stream_urls():
         else:
             print("  [WARNING] Unexpected success with non-existent bucket")
     except Exception as e:
-        print(f"  [PASS] Exception handled for non-existent bucket: {e}")
+        print(f"  [FAIL] Exception for non-existent bucket: {e}")
+        sys.exit(1)
 
     # Test 2: Malformed stream_base URL
     print("  Testing with malformed URL...")
@@ -190,7 +191,8 @@ def test_invalid_stream_urls():
         else:
             print("  [WARNING] Unexpected success with invalid hydrophone")
     except Exception as e:
-        print(f"  [PASS] Exception handled for invalid hydrophone: {e}")
+        print(f"  [FAIL] Exception handled for invalid hydrophone: {e}")
+        sys.exit(1)
 
     print("[PASS] Invalid stream URL tests completed")
 
@@ -321,7 +323,7 @@ def test_sequential_clip_retrieval(stream_base):
         stream = HLSStream(stream_base, polling_interval, wav_dir)
 
         # Test 1: First call with a timestamp from the past
-        print("  Testing first get_next_clip call...")
+        print("  Testing first get_next_clip call, ending 10 minutes ago...")
         current_clip_end_time = datetime.utcnow() - timedelta(minutes=10)
         print(f"    First timestamp: {current_clip_end_time}")
 
@@ -345,17 +347,9 @@ def test_sequential_clip_retrieval(stream_base):
 
         # Test 2: Second call should advance the time window
         print("  Testing second get_next_clip call...")
-        # Use the end time from the first call, or continue from original
-        if first_call_success and clip_end1:
-            current_clip_end_time = clip_end1
-        else:
-            # Advance by polling interval anyway
-            current_clip_end_time = current_clip_end_time + timedelta(
-                seconds=polling_interval
-            )
+        current_clip_end_time = clip_end1 + timedelta(0, polling_interval)
 
         print(f"    Second timestamp: {current_clip_end_time}")
-
         try:
             wav_path2, clip_start2, clip_end2 = stream.get_next_clip(
                 current_clip_end_time
