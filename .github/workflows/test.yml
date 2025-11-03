@@ -44,4 +44,4 @@ jobs:
 
     - name: Run DateRangeHLSStream tests
       run: |
-        pytest tests/test_daterangehlsstream.py -v
+        pytest -m tests

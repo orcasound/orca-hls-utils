@@ -15,6 +15,7 @@ import pytest
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 
 
+@pytest.mark.tests
 def test_daterangehlsstream_initialization(default_stream_base):
     """Test DateRangeHLSStream initialization with valid parameters."""
     polling_interval = 60  # seconds
@@ -52,6 +53,7 @@ def test_daterangehlsstream_initialization(default_stream_base):
         pass
 
 
+@pytest.mark.tests
 def test_daterangehlsstream_is_stream_over(default_stream_base):
     """Test that is_stream_over correctly identifies when stream ends."""
     polling_interval = 60
@@ -84,6 +86,7 @@ def test_daterangehlsstream_is_stream_over(default_stream_base):
         pass
 
 
+@pytest.mark.tests
 def test_daterangehlsstream_get_next_clip_default(default_stream_base):
     """
     Test get_next_clip behavior with default stream.
@@ -137,6 +140,7 @@ def test_daterangehlsstream_get_next_clip_default(default_stream_base):
             shutil.rmtree(wav_dir)
 
 
+@pytest.mark.tests
 def test_daterangehlsstream_get_next_clip_secondary(secondary_stream_base):
     """Test get_next_clip behavior with secondary stream."""
     polling_interval = 60  # seconds
@@ -185,6 +189,7 @@ def test_daterangehlsstream_get_next_clip_secondary(secondary_stream_base):
             shutil.rmtree(wav_dir)
 
 
+@pytest.mark.tests
 def test_invalid_future_date_range():
     """Test error handling with future date range."""
     polling_interval = 60
@@ -215,6 +220,7 @@ def test_invalid_future_date_range():
         pass
 
 
+@pytest.mark.tests
 def test_invalid_old_date_range():
     """Test error handling with very old date range (likely no data)."""
     polling_interval = 60
@@ -243,6 +249,7 @@ def test_invalid_old_date_range():
         pass
 
 
+@pytest.mark.tests
 def test_invalid_reversed_date_range():
     """Test error handling with reversed date range (end before start)."""
     polling_interval = 60
@@ -272,6 +279,7 @@ def test_invalid_reversed_date_range():
 
 
 @pytest.mark.slow
+@pytest.mark.tests
 def test_sequential_clip_retrieval(default_stream_base):
     """Test multiple get_next_clip calls in sequence."""
     polling_interval = 60
@@ -321,6 +329,7 @@ def test_sequential_clip_retrieval(default_stream_base):
             shutil.rmtree(wav_dir)
 
 
+@pytest.mark.tests
 def test_real_time_mode_false(default_stream_base):
     """Test real_time mode parameter set to False."""
     polling_interval = 60
@@ -346,6 +355,7 @@ def test_real_time_mode_false(default_stream_base):
         pass
 
 
+@pytest.mark.tests
 def test_real_time_mode_true(default_stream_base):
     """Test real_time mode parameter set to True."""
     polling_interval = 60
@@ -371,6 +381,7 @@ def test_real_time_mode_true(default_stream_base):
         pass
 
 
+@pytest.mark.tests
 def test_overwrite_output_false(default_stream_base):
     """Test overwrite_output parameter set to False."""
     polling_interval = 60
@@ -396,6 +407,7 @@ def test_overwrite_output_false(default_stream_base):
         pass
 
 
+@pytest.mark.tests
 def test_overwrite_output_true(default_stream_base):
     """Test overwrite_output parameter set to True."""
     polling_interval = 60
