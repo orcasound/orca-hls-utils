@@ -8,8 +8,9 @@ from Orcasound hydrophone streams.
 """
 import os
 import shutil
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
 
 from orca_hls_utils.HLSStream import HLSStream
 
@@ -339,4 +340,3 @@ def test_sequential_clip_retrieval(default_stream_base):
     finally:
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
-
