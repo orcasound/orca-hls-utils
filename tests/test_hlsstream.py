@@ -130,7 +130,7 @@ def test_hlsstream_get_next_clip_secondary(secondary_stream_base):
                     os.path.getsize(wav_path) > 0
                 ), "WAV file should not be empty"
         except Exception:
-            # HTTPError or other exceptions are acceptable if stream unavailable
+            # HTTPError or other exceptions acceptable if unavailable
             pass
     finally:
         # Clean up test directory
