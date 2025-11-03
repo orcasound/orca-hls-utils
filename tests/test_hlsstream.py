@@ -149,7 +149,7 @@ def test_invalid_nonexistent_bucket():
     )
     stream = HLSStream(stream_base, polling_interval, wav_dir)
     current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
-    
+
     # Expected to raise HTTPError (301 redirect or 404) for non-existent bucket
     with pytest.raises(Exception):  # HTTPError expected
         wav_path, clip_start, clip_end = stream.get_next_clip(
@@ -185,7 +185,7 @@ def test_invalid_hydrophone_id():
     )
     stream = HLSStream(stream_base, polling_interval, wav_dir)
     current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
-    
+
     # Expected to raise HTTPError (404) for invalid hydrophone
     with pytest.raises(Exception):  # HTTPError expected
         wav_path, clip_start, clip_end = stream.get_next_clip(
