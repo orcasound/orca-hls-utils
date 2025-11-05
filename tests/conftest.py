@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for HLSStream tests.
+Pytest configuration and fixtures for orca-hls-utils tests.
 """
 
 import pytest
