@@ -1,3 +1,8 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Environments
 .env
 .venv
@@ -26,4 +31,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-__pycache__/
+
+# Test artifacts
+test_wav_output/
+tmp_path/
+*.wav
+*.ts
