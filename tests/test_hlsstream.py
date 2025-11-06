@@ -325,11 +325,10 @@ def test_sequential_clip_retrieval(default_stream_base):
         # Second call should advance the time window
         if first_call_success and clip_end1:
             current_clip_end_time = clip_end1
-        else:
-            # Advance by polling interval anyway
-            current_clip_end_time = current_clip_end_time + timedelta(
-                seconds=polling_interval
-            )
+
+        current_clip_end_time = current_clip_end_time + timedelta(
+            seconds=polling_interval
+        )
 
         wav_path2, clip_start2, clip_end2 = stream.get_next_clip(
             current_clip_end_time
