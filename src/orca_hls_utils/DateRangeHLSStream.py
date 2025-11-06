@@ -52,7 +52,7 @@ class DateRangeHLSStream:
         wav_dir,
         overwrite_output=False,
         real_time=False,
-        audio_offset=2
+        audio_offset=2,
     ):
         """ """
 
@@ -157,7 +157,9 @@ class DateRangeHLSStream:
         # an offset here to compensate.
         time_since_folder_start -= self.audio_offset
 
-        segment_start_index = math.ceil(time_since_folder_start / target_duration)
+        segment_start_index = math.ceil(
+            time_since_folder_start / target_duration
+        )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
