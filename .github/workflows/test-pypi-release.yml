@@ -1,7 +1,6 @@
 name: Publish Python package to Test PyPi
 
-on:
-  workflow-dispatch:
+on: workflow-dispatch
 
 jobs:
   publish:
