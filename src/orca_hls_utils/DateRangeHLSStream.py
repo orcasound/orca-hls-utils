@@ -39,6 +39,7 @@ class DateRangeHLSStream:
     overwrite_output: allows ffmpeg to overwrite output, default is False
     real_time: if False, get data as soon as possible, if true wait for
                 polling interval before pulling
+    audio_offset: delay after stream_id before first audio clip was started
     """
 
     def __init__(
@@ -50,6 +51,7 @@ class DateRangeHLSStream:
         wav_dir,
         overwrite_output=False,
         real_time=False,
+        audio_offset=2
     ):
         """ """
 
@@ -62,6 +64,7 @@ class DateRangeHLSStream:
         self.overwrite_output = overwrite_output
         self.real_time = real_time
         self.is_end_of_stream = False
+        self.audio_offset = audio_offset
 
         # Create wav dir if necessary
         Path(self.wav_dir).mkdir(parents=True, exist_ok=True)
@@ -142,12 +145,18 @@ class DateRangeHLSStream:
 
         # calculate the start index by computing the current time - start of
         # current folder
-        segment_start_index = math.ceil(
+        time_since_folder_start = (
             datetime_utils.get_difference_between_times_in_seconds(
                 self.current_clip_start_time, current_folder
             )
-            / target_duration
         )
+
+        # Currently there is a delay between the stream_id time and
+        # the actual start of the audio stream in the folder, so add
+        # an offset here to compensate.
+        time_since_folder_start -= self.audio_offset
+
+        segment_start_index = math.ceil(time_since_folder_start / target_duration)
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
