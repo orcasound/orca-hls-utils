@@ -156,6 +156,7 @@ def test_invalid_nonexistent_bucket():
     assert wav_path is None
     assert clip_start is None
 
+
 def test_invalid_malformed_url():
     """Test handling of malformed stream_base URL."""
     polling_interval = 60
@@ -190,6 +191,7 @@ def test_invalid_hydrophone_id():
     )
     assert wav_path is None
     assert clip_start is None
+
 
 @pytest.mark.slow
 def test_time_edge_10_seconds_before_now(default_stream_base):
