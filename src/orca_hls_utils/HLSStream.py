@@ -2,6 +2,7 @@
 import math
 import os
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -74,12 +75,15 @@ class HLSStream:
         # get latest AWS bucket
         print("Listening to location {loc}".format(loc=self.stream_base))
         latest = f"{self.stream_base}/latest.txt"
-        stream_id = (
-            urllib.request.urlopen(latest)
-            .read()
-            .decode("utf-8")
-            .replace("\n", "")
-        )
+        try:
+            with urllib.request.urlopen(latest) as response:
+                stream_id = response.read().decode("utf-8").strip()
+        except urllib.error.HTTPError as e:
+            print(f"Failed to fetch latest.txt: {e}")
+            return None, None, current_clip_end_time
+        except urllib.error.URLError as e:
+            print(f"Failed to fetch latest.txt: {e}")
+            return None, None, current_clip_end_time
 
         # stream_url for the current AWS bucket
         stream_url = "{}/hls/{}/live.m3u8".format(
