@@ -20,6 +20,9 @@ jobs:
       - name: Install build tool
         run: python -m pip install --upgrade build
 
+      - name: Clean old builds
+        run: rm -rf dist build *.egg-info
+
       - name: Build distributions
         run: python -m build
 

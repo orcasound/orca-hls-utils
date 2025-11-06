@@ -5,6 +5,12 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools_scm]
+fallback_version = "unknown"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+write_to = "orca-hls-utils/_version.py"
+
 [tool.black]
 line-length = 79
 
