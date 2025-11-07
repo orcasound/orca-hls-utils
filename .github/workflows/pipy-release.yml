@@ -9,6 +9,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+
+      - name: Clean workspace
+        run: rm -rf ${{ github.workspace }}/*
       - name: Checkout
         uses: actions/checkout@v5
         with:
