@@ -8,7 +8,7 @@ from Orcasound hydrophone streams within a specific date range.
 """
 import os
 import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -468,7 +468,8 @@ def check_daterange_get_next_clip_output(
     "desired_time,expected_wav_path,expected_clip_start,expected_clip_end",
     [
         (
-            # Test with a time less than 60 seconds into a folder, which should fail.
+            # Test with a time less than 60 seconds into a folder, which should
+            # fail.
             # Thursday, Nov 6, 2025 00:00:51 PST
             datetime(
                 2025, 11, 6, 0, 0, 51, tzinfo=ZoneInfo("America/Los_Angeles")
@@ -484,7 +485,8 @@ def check_daterange_get_next_clip_output(
             # but currently are just based on the requested time.
             # Using Thursday, Nov 6, 2025 00:01:43 PST, but DateRangeHLSStream
             # currently returns strings in local time when run locally, and
-            # GMT when run by github.  This should also be updated to be consistent.
+            # GMT when run by github.  This should also be updated to be
+            # consistent.
             datetime(
                 2025, 11, 6, 0, 1, 43, tzinfo=ZoneInfo("America/Los_Angeles")
             ),
@@ -497,10 +499,11 @@ def check_daterange_get_next_clip_output(
             None,
         ),
         (
-            # Test with Scott's rock test on 11/4/25, where the rock splash happened
-            # at 11:17:09.4 local (19:17:09.4 UTC) according to Scott's phone.
-            # The returned values should be updated to the actual clip times
-            # but currently are just based on the requested time.
+            # Test with Scott's rock test on 11/4/25, where the rock splash
+            # happened at 11:17:09.4 local (19:17:09.4 UTC) according to
+            # Scott's phone.  The returned values should be updated to the
+            # actual clip times but currently are just based on the requested
+            # time.
             datetime(
                 2025, 11, 4, 11, 17, 9, tzinfo=ZoneInfo("America/Los_Angeles")
             ),

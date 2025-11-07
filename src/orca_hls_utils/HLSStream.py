@@ -74,7 +74,7 @@ class HLSStream:
         # get latest AWS bucket
         print("Listening to location {loc}".format(loc=self.stream_base))
         stream_id = self.get_latest_folder_time()
-        if stream_id == None:
+        if stream_id is None:
             return None, None, current_clip_end_time
 
         # stream_url for the current AWS bucket

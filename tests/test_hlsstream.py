@@ -370,9 +370,12 @@ def check_get_next_clip_output(
 
     Args:
         stream: HLSStream instance to test
-        desired_end_offsets: number of seconds after folder time for desired clip end time
-        expected_clip_start: number of seconds after folder time for expected clip start time, or None
-        expected_clip_end: number of seconds after folder time for expected clip end time, or None
+        desired_end_offsets: number of seconds after folder time for desired
+            clip end time
+        expected_clip_start: number of seconds after folder time for expected
+            clip start time, or None
+        expected_clip_end: number of seconds after folder time for expected
+            clip end time, or None
     """
     stream_id = int(stream.get_latest_folder_time())
     desired_clip_end_time = datetime.utcfromtimestamp(
