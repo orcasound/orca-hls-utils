@@ -470,7 +470,9 @@ def check_daterange_get_next_clip_output(
         (
             # Test with a time less than 60 seconds into a folder, which should fail.
             # Thursday, Nov 6, 2025 00:00:51 PST
-            datetime(2025, 11, 6, 0, 0, 51, tzinfo=ZoneInfo("America/Los_Angeles")),
+            datetime(
+                2025, 11, 6, 0, 0, 51, tzinfo=ZoneInfo("America/Los_Angeles")
+            ),
             None,
             None,
             None,
@@ -483,8 +485,14 @@ def check_daterange_get_next_clip_output(
             # Using Thursday, Nov 6, 2025 00:01:43 PST, but DateRangeHLSStream
             # currently returns strings in local time when run locally, and
             # GMT when run by github.  This should also be updated to be consistent.
-            datetime(2025, 11, 6, 0, 1, 43, tzinfo=ZoneInfo("America/Los_Angeles")),
-            os.path.join(".", "test_wav_output", "rpi-orcasound-lab_2025_11_06_08_00_43.wav"),
+            datetime(
+                2025, 11, 6, 0, 1, 43, tzinfo=ZoneInfo("America/Los_Angeles")
+            ),
+            os.path.join(
+                ".",
+                "test_wav_output",
+                "rpi-orcasound-lab_2025_11_06_08_00_43.wav",
+            ),
             "2025_11_06_08_00_43",
             None,
         ),
@@ -493,8 +501,14 @@ def check_daterange_get_next_clip_output(
             # at 11:17:09.4 local (19:17:09.4 UTC) according to Scott's phone.
             # The returned values should be updated to the actual clip times
             # but currently are just based on the requested time.
-            datetime(2025, 11, 4, 11, 17, 9, tzinfo=ZoneInfo("America/Los_Angeles")),
-            os.path.join(".", "test_wav_output", "rpi-orcasound-lab_2025_11_04_19_16_09.wav"),
+            datetime(
+                2025, 11, 4, 11, 17, 9, tzinfo=ZoneInfo("America/Los_Angeles")
+            ),
+            os.path.join(
+                ".",
+                "test_wav_output",
+                "rpi-orcasound-lab_2025_11_04_19_16_09.wav",
+            ),
             "2025_11_04_19_16_09",
             None,
         ),

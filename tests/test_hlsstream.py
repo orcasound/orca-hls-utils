@@ -375,9 +375,14 @@ def check_get_next_clip_output(
         expected_clip_end: number of seconds after folder time for expected clip end time, or None
     """
     stream_id = int(stream.get_latest_folder_time())
-    desired_clip_end_time = datetime.utcfromtimestamp(stream_id + desired_end_offset)
+    desired_clip_end_time = datetime.utcfromtimestamp(
+        stream_id + desired_end_offset
+    )
     expected_clip_start = (
-        datetime.utcfromtimestamp(stream_id + expected_start_offset).isoformat() + "Z"
+        datetime.utcfromtimestamp(
+            stream_id + expected_start_offset
+        ).isoformat()
+        + "Z"
         if expected_start_offset is not None
         else None
     )
@@ -406,11 +411,10 @@ def check_get_next_clip_output(
         # Test with a desired end time less than 60 seconds into the latest
         # folder, which should fail since we would have to extend the time
         # more than 10 seconds to get a 60 second audio clip.
-        ( 31, None, 31 ),
-
+        (31, None, 31),
         # Test with a desired time that isn't on a 10-second boundary and
         # verify it's extended to less than 10 seconds later.
-        ( 103, 50, 110),
+        (103, 50, 110),
     ],
 )
 def test_get_next_clip_specific_times(
@@ -438,9 +442,8 @@ def test_get_next_clip_specific_times(
             stream,
             desired_end_offset,
             expected_start_offset,
-            expected_end_offset
+            expected_end_offset,
         )
     finally:
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
-
