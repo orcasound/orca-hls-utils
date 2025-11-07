@@ -19,7 +19,8 @@ jobs:
     steps:
 
     - name: Clean workspace
-      run: rm -rf ${{ github.workspace }}/*
+      shell: pwsh
+      run: Remove-Item -Recurse -Force "$Env:GITHUB_WORKSPACE\*"
     - name: Checkout code
       uses: actions/checkout@v4
 
