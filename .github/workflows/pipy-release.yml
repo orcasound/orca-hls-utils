@@ -9,8 +9,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+
+      - name: Clean workspace
+        run: rm -rf ${{ github.workspace }}/*
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Fetch all commits
+          fetch-tags: true
 
       - name: Set up Python
         uses: actions/setup-python@v6

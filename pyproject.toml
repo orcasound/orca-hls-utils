@@ -1,7 +1,9 @@
 [build-system]
 requires = [
     "setuptools==70.0.0",
-    "wheel"
+    "wheel",
+    "setuptools_scm[toml]>=3.4"
+
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,7 +11,7 @@ build-backend = "setuptools.build_meta"
 fallback_version = "unknown"
 version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
-write_to = "orca-hls-utils/_version.py"
+write_to = "src/orca_hls_utils/_version.py"
 
 [tool.black]
 line-length = 79
