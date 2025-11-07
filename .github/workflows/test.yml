@@ -17,6 +17,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
+
+    - name: Clean workspace
+      run: rm -rf ${{ github.workspace }}/*
     - name: Checkout code
       uses: actions/checkout@v4
 
