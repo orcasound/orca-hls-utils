@@ -482,11 +482,11 @@ def check_daterange_get_next_clip_output(
             # Test with a time that isn't on a boundary.
             # Time strings are returned in local (PST) time.
             # The returned values should be updated to the actual clip times
-            # but currently are just based on the requested time.
+            # but currently are just based on the requested time (issue #46).
             # Using Thursday, Nov 6, 2025 00:01:43 PST, but DateRangeHLSStream
             # currently returns strings in local time when run locally, and
             # GMT when run by github.  This should also be updated to be
-            # consistent.
+            # consistent (issue #47).
             datetime(
                 2025, 11, 6, 0, 1, 43, tzinfo=ZoneInfo("America/Los_Angeles")
             ),

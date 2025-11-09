@@ -417,7 +417,7 @@ def check_get_next_clip_output(
         (31, None, 31),
         # Test with a desired time that isn't on a 10-second boundary and
         # verify it's extended to less than 10 seconds later.
-        (103, 50, 110),
+        (103, 52, 112),
     ],
 )
 def test_get_next_clip_specific_times(
