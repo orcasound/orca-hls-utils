@@ -409,7 +409,8 @@ def check_get_next_clip_output(
 
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    "desired_end_offset,audio_offset,expected_start_offset,expected_end_offset",
+    "desired_end_offset,audio_offset,expected_start_offset,"
+    "expected_end_offset",
     [
         # Test with a desired end time less than 60 seconds into the latest
         # folder, which should fail since we would have to extend the time
@@ -444,7 +445,9 @@ def test_get_next_clip_specific_times(
         if audio_offset is None:
             stream = HLSStream(default_stream_base, polling_interval, wav_dir)
         else:
-            stream = HLSStream(default_stream_base, polling_interval, wav_dir, audio_offset)
+            stream = HLSStream(
+                default_stream_base, polling_interval, wav_dir, audio_offset
+            )
 
         # Use helper function to test get_next_clip with expected values
         check_get_next_clip_output(
