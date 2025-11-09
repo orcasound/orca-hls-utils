@@ -143,7 +143,11 @@ class HLSStream:
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         # Compute nominal end time
-        end_seconds = segment_end_index * target_duration + int(stream_id) + self.audio_offset
+        end_seconds = (
+            segment_end_index * target_duration
+            + int(stream_id)
+            + self.audio_offset
+        )
         end_utc = datetime.utcfromtimestamp(end_seconds)
         current_clip_end_time = end_utc
 
