@@ -34,10 +34,11 @@ class HLSStream:
     polling_interval = 60 sec
     """
 
-    def __init__(self, stream_base, polling_interval, wav_dir):
+    def __init__(self, stream_base, polling_interval, wav_dir, audio_offset=2):
         self.stream_base = stream_base
         self.polling_interval = polling_interval
         self.wav_dir = wav_dir
+        self.audio_offset = audio_offset
         bucket_folder = self.stream_base.split(
             "https://s3-us-west-2.amazonaws.com/"
         )[1]
@@ -113,6 +114,12 @@ class HLSStream:
                 current_clip_end_time_unix_pst, stream_id
             )
         )
+
+        # Currently there is a delay between the stream_id time and
+        # the actual start of the audio stream in the folder, so add
+        # an offset here to compensate.
+        time_since_folder_start -= self.audio_offset
+
         if time_since_folder_start < self.polling_interval + 20:
             # This implies that possibly a new folder was created
             # and we do not have enough data for a 1 minute clip + 20 second
