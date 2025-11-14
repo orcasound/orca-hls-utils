@@ -387,6 +387,7 @@ def test_overwrite_output_true(default_stream_base):
     )
     assert stream.overwrite_output is True
 
+
 def check_daterange_get_next_clip_output(
     stream, expected_wav_path, expected_clip_start, expected_clip_end
 ):
