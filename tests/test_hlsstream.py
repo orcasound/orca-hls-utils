@@ -68,25 +68,21 @@ def test_hlsstream_get_next_clip_default(default_stream_base):
         # Simulate a clip end time from the past (5 minutes ago)
         current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
 
-        # Call get_next_clip - may fail if network unavailable
-        try:
-            wav_path, clip_start, clip_end = stream.get_next_clip(
-                current_clip_end_time
-            )
+        # Call get_next_clip
+        wav_path, clip_start, clip_end = stream.get_next_clip(
+            current_clip_end_time
+        )
 
-            # In CI environment, stream may not be available
-            # This is acceptable behavior for this test
-            if wav_path is not None:
-                # Verify the WAV file was created if path was returned
-                assert os.path.exists(
-                    wav_path
-                ), "WAV file should exist if path is returned"
-                assert (
-                    os.path.getsize(wav_path) > 0
-                ), "WAV file should not be empty"
-        except Exception:
-            # Network errors are acceptable in CI environment
-            pass
+        # In CI environment, stream may not be available or no data
+        # In that case, the method returns None which is acceptable
+        if wav_path is not None:
+            # Verify the WAV file was created if path was returned
+            assert os.path.exists(
+                wav_path
+            ), "WAV file should exist if path is returned"
+            assert (
+                os.path.getsize(wav_path) > 0
+            ), "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -112,26 +108,21 @@ def test_hlsstream_get_next_clip_secondary(secondary_stream_base):
         # Simulate a clip end time from the past (5 minutes ago)
         current_clip_end_time = datetime.utcnow() - timedelta(minutes=5)
 
-        # Call get_next_clip - may raise HTTPError if stream unavailable
-        # This is expected behavior when stream doesn't exist
-        try:
-            wav_path, clip_start, clip_end = stream.get_next_clip(
-                current_clip_end_time
-            )
+        # Call get_next_clip
+        wav_path, clip_start, clip_end = stream.get_next_clip(
+            current_clip_end_time
+        )
 
-            # In CI environment, stream may not be available
-            # This is acceptable behavior for this test
-            if wav_path is not None:
-                # Verify the WAV file was created if path was returned
-                assert os.path.exists(
-                    wav_path
-                ), "WAV file should exist if path is returned"
-                assert (
-                    os.path.getsize(wav_path) > 0
-                ), "WAV file should not be empty"
-        except Exception:
-            # HTTPError or other exceptions acceptable if unavailable
-            pass
+        # In CI environment, stream may not be available or no data
+        # In that case, the method returns None which is acceptable
+        if wav_path is not None:
+            # Verify the WAV file was created if path was returned
+            assert os.path.exists(
+                wav_path
+            ), "WAV file should exist if path is returned"
+            assert (
+                os.path.getsize(wav_path) > 0
+            ), "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -285,17 +276,13 @@ def test_time_edge_old_timestamp(default_stream_base):
         stream = HLSStream(default_stream_base, polling_interval, wav_dir)
         current_clip_end_time = datetime.utcnow() - timedelta(hours=6)
 
-        # May fail due to network issues or old data unavailable
-        try:
-            wav_path, clip_start, clip_end = stream.get_next_clip(
-                current_clip_end_time
-            )
+        # Call get_next_clip with very old timestamp
+        wav_path, clip_start, clip_end = stream.get_next_clip(
+            current_clip_end_time
+        )
 
-            # Acceptable to return None (data likely unavailable)
-            assert wav_path is None or isinstance(wav_path, str)
-        except Exception:
-            # Network errors or unavailable data are acceptable
-            pass
+        # Acceptable to return None (data likely unavailable for old timestamp)
+        assert wav_path is None or isinstance(wav_path, str)
     finally:
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)

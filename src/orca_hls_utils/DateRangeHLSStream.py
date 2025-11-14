@@ -166,6 +166,9 @@ class DateRangeHLSStream:
             # move to the next folder and increment the
             # current_clip_start_time to the new
             self.current_folder_index += 1
+            if self.current_folder_index >= len(self.valid_folders):
+                # No more folders available
+                return None, None, None
             self.current_clip_start_time = self.valid_folders[
                 self.current_folder_index
             ]

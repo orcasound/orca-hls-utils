@@ -28,29 +28,24 @@ def test_daterangehlsstream_initialization(default_stream_base):
     end_unix_time = int(end_time.timestamp())
 
     # Create DateRangeHLSStream instance
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-        )
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+    )
 
-        # Verify that the stream was initialized correctly
-        assert stream.stream_base == default_stream_base
-        assert stream.polling_interval_in_seconds == polling_interval
-        assert stream.start_unix_time == start_unix_time
-        assert stream.end_unix_time == end_unix_time
-        assert stream.wav_dir == wav_dir
-        assert stream.s3_bucket == "audio-orcasound-net"
-        # Extract folder_name from stream_base for verification
-        expected_folder_name = default_stream_base.rstrip("/").split("/")[-1]
-        assert stream.folder_name == expected_folder_name
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        # This is acceptable behavior
-        pass
+    # Verify that the stream was initialized correctly
+    assert stream.stream_base == default_stream_base
+    assert stream.polling_interval_in_seconds == polling_interval
+    assert stream.start_unix_time == start_unix_time
+    assert stream.end_unix_time == end_unix_time
+    assert stream.wav_dir == wav_dir
+    assert stream.s3_bucket == "audio-orcasound-net"
+    # Extract folder_name from stream_base for verification
+    expected_folder_name = default_stream_base.rstrip("/").split("/")[-1]
+    assert stream.folder_name == expected_folder_name
 
 
 @pytest.mark.tests
@@ -65,25 +60,20 @@ def test_daterangehlsstream_is_stream_over(default_stream_base):
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-        )
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+    )
 
-        # At initialization, stream should not be over
-        assert stream.is_stream_over() is False
+    # At initialization, stream should not be over
+    assert stream.is_stream_over() is False
 
-        # Manually set current_clip_start_time to end to test is_stream_over
-        stream.current_clip_start_time = end_unix_time
-        assert stream.is_stream_over() is True
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        # This is acceptable behavior
-        pass
+    # Manually set current_clip_start_time to end to test is_stream_over
+    stream.current_clip_start_time = end_unix_time
+    assert stream.is_stream_over() is True
 
 
 @pytest.mark.tests
@@ -122,7 +112,7 @@ def test_daterangehlsstream_get_next_clip_default(default_stream_base):
         wav_path, clip_start, clip_end = stream.get_next_clip()
 
         # In CI environment, stream may not be available or no data exists
-        # This is acceptable behavior for this test
+        # In that case, the method returns None which is acceptable
         if wav_path is not None:
             # Verify the WAV file was created if path was returned
             assert os.path.exists(
@@ -131,9 +121,6 @@ def test_daterangehlsstream_get_next_clip_default(default_stream_base):
             assert (
                 os.path.getsize(wav_path) > 0
             ), "WAV file should not be empty"
-    except Exception:
-        # Network errors or no data in date range are acceptable
-        pass
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -171,7 +158,7 @@ def test_daterangehlsstream_get_next_clip_secondary(secondary_stream_base):
         wav_path, clip_start, clip_end = stream.get_next_clip()
 
         # In CI environment, stream may not be available or no data exists
-        # This is acceptable behavior for this test
+        # In that case, the method returns None which is acceptable
         if wav_path is not None:
             # Verify the WAV file was created if path was returned
             assert os.path.exists(
@@ -180,9 +167,6 @@ def test_daterangehlsstream_get_next_clip_secondary(secondary_stream_base):
             assert (
                 os.path.getsize(wav_path) > 0
             ), "WAV file should not be empty"
-    except Exception:
-        # Network errors or no data in date range are acceptable
-        pass
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -204,20 +188,15 @@ def test_invalid_future_date_range():
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    # Should handle gracefully - either initialize or raise exception
-    # Both behaviors are acceptable
-    try:
-        stream = DateRangeHLSStream(  # noqa: F841
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-        )
-        # If initialization succeeds, that's acceptable (may have no folders)
-    except Exception:
-        # If it raises an exception, that's also acceptable
-        pass
+    # Should handle gracefully - may have no folders for future dates
+    stream = DateRangeHLSStream(  # noqa: F841
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+    )
+    # If initialization succeeds, that's acceptable (may have no folders)
 
 
 @pytest.mark.tests
@@ -235,18 +214,15 @@ def test_invalid_old_date_range():
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(  # noqa: F841
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-        )
-        # If initialization succeeds, that's acceptable
-    except Exception:
-        # If it raises an exception, that's also acceptable
-        pass
+    # Should handle gracefully - may have no folders for very old dates
+    stream = DateRangeHLSStream(  # noqa: F841
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+    )
+    # If initialization succeeds, that's acceptable
 
 
 @pytest.mark.tests
@@ -264,18 +240,15 @@ def test_invalid_reversed_date_range():
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        _stream = DateRangeHLSStream(  # noqa: F841
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-        )
-        # If initialization succeeds, that's acceptable (may have no folders)
-    except Exception:
-        # If it raises an exception, that's also acceptable
-        pass
+    # Should handle gracefully - may have no folders for reversed date range
+    _stream = DateRangeHLSStream(  # noqa: F841
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+    )
+    # If initialization succeeds, that's acceptable (may have no folders)
 
 
 @pytest.mark.slow
@@ -320,9 +293,6 @@ def test_sequential_clip_retrieval(default_stream_base):
                 "Time window should advance - "
                 "second clip should have different start time"
             )
-    except Exception:
-        # Network errors or no data in date range are acceptable
-        pass
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -340,19 +310,15 @@ def test_real_time_mode_false(default_stream_base):
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-            real_time=False,
-        )
-        assert stream.real_time is False
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        pass
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+        real_time=False,
+    )
+    assert stream.real_time is False
 
 
 @pytest.mark.tests
@@ -366,19 +332,15 @@ def test_real_time_mode_true(default_stream_base):
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-            real_time=True,
-        )
-        assert stream.real_time is True
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        pass
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+        real_time=True,
+    )
+    assert stream.real_time is True
 
 
 @pytest.mark.tests
@@ -392,19 +354,15 @@ def test_overwrite_output_false(default_stream_base):
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-            overwrite_output=False,
-        )
-        assert stream.overwrite_output is False
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        pass
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+        overwrite_output=False,
+    )
+    assert stream.overwrite_output is False
 
 
 @pytest.mark.tests
@@ -418,16 +376,12 @@ def test_overwrite_output_true(default_stream_base):
     start_unix_time = int(start_time.timestamp())
     end_unix_time = int(end_time.timestamp())
 
-    try:
-        stream = DateRangeHLSStream(
-            default_stream_base,
-            polling_interval,
-            start_unix_time,
-            end_unix_time,
-            wav_dir,
-            overwrite_output=True,
-        )
-        assert stream.overwrite_output is True
-    except Exception:
-        # Initialization may fail if no data exists in the date range
-        pass
+    stream = DateRangeHLSStream(
+        default_stream_base,
+        polling_interval,
+        start_unix_time,
+        end_unix_time,
+        wav_dir,
+        overwrite_output=True,
+    )
+    assert stream.overwrite_output is True
