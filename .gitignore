@@ -31,6 +31,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+_version.py
 
 # Test artifacts
 test_wav_output/

@@ -8,7 +8,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-fallback_version = "unknown"
+fallback_version = "0.0.0+unknown"
 version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 write_to = "src/orca_hls_utils/_version.py"
