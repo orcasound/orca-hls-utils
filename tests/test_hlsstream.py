@@ -82,9 +82,7 @@ def test_hlsstream_get_next_clip_default(default_stream_base):
         assert os.path.exists(
             wav_path
         ), "WAV file should exist if path is returned"
-        assert (
-            os.path.getsize(wav_path) > 0
-        ), "WAV file should not be empty"
+        assert os.path.getsize(wav_path) > 0, "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -124,9 +122,7 @@ def test_hlsstream_get_next_clip_secondary(secondary_stream_base):
         assert os.path.exists(
             wav_path
         ), "WAV file should exist if path is returned"
-        assert (
-            os.path.getsize(wav_path) > 0
-        ), "WAV file should not be empty"
+        assert os.path.getsize(wav_path) > 0, "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
