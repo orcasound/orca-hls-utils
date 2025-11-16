@@ -75,14 +75,16 @@ def test_hlsstream_get_next_clip_default(default_stream_base):
 
         # In CI environment, stream may not be available or no data
         # In that case, the method returns None which is acceptable
-        if wav_path is not None:
-            # Verify the WAV file was created if path was returned
-            assert os.path.exists(
-                wav_path
-            ), "WAV file should exist if path is returned"
-            assert (
-                os.path.getsize(wav_path) > 0
-            ), "WAV file should not be empty"
+        if wav_path is None:
+            pytest.skip("get_next_clip returned a wav_path of None")
+
+        # Verify the WAV file was created if path was returned
+        assert os.path.exists(
+            wav_path
+        ), "WAV file should exist if path is returned"
+        assert (
+            os.path.getsize(wav_path) > 0
+        ), "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -115,14 +117,16 @@ def test_hlsstream_get_next_clip_secondary(secondary_stream_base):
 
         # In CI environment, stream may not be available or no data
         # In that case, the method returns None which is acceptable
-        if wav_path is not None:
-            # Verify the WAV file was created if path was returned
-            assert os.path.exists(
-                wav_path
-            ), "WAV file should exist if path is returned"
-            assert (
-                os.path.getsize(wav_path) > 0
-            ), "WAV file should not be empty"
+        if wav_path is None:
+            pytest.skip("get_next_clip returned a wav_path of None")
+
+        # Verify the WAV file was created if path was returned
+        assert os.path.exists(
+            wav_path
+        ), "WAV file should exist if path is returned"
+        assert (
+            os.path.getsize(wav_path) > 0
+        ), "WAV file should not be empty"
     finally:
         # Clean up test directory
         if os.path.exists(wav_dir):
@@ -204,8 +208,9 @@ def test_time_edge_10_seconds_before_now(default_stream_base):
         )
 
         # Note: In CI environment this may fail if stream is unavailable
-        # For now we'll allow None, but in production this should succeed
-        # assert wav_path is not None, "Should retrieve clip from 10 sec ago"
+        # but normally this should succeed
+        if wav_path is None:
+            pytest.skip("get_next_clip returned a wav_path of None")
     finally:
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
