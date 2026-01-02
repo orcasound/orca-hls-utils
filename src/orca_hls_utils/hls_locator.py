@@ -160,16 +160,22 @@ def list_streams_in_range(
     bucket: str,
     location: str,
     start_timestamp: int,
-    end_timestamp: int
+    end_timestamp: int,
+    stream_duration_estimate: int = 86400
 ) -> List[int]:
     """
-    List all stream folders in a time range.
+    List all stream folders that are active during a time range.
+
+    Returns streams that start within the range, plus streams that started
+    earlier but may still be running during the range (based on estimated
+    stream duration of ~24 hours).
 
     :param bucket: Name of the S3 bucket
     :param location: Hydrophone location
     :param start_timestamp: Start of time range (unix timestamp)
     :param end_timestamp: End of time range (unix timestamp)
-    :return: Sorted list of stream folder timestamps in the range
+    :param stream_duration_estimate: Estimated stream duration in seconds (default: 86400 = 24 hours)
+    :return: Sorted list of stream folder timestamps that are active during the range
     """
     # Get the prefix range we need to search
     start_prefix = str(start_timestamp)[:4]
@@ -199,12 +205,18 @@ def list_streams_in_range(
             folders = get_folders_with_prefix(bucket, hls_prefix, prefix)
             all_folders.extend(folders)
 
-    # Filter to only folders that overlap with the range and remove duplicates
-    # A stream overlaps if it starts before end_timestamp
+    # Filter to streams that are active during the time range:
+    # 1. Streams that start within the range: start_timestamp <= f <= end_timestamp
+    # 2. Streams that started before start_timestamp but may still be running
+    #    (within stream_duration_estimate of start_timestamp)
     all_folders = sorted(set(all_folders))
+
+    # Calculate the earliest stream start time that could still be active at start_timestamp
+    earliest_active = start_timestamp - stream_duration_estimate
+
     filtered = [
         f for f in all_folders
-        if f <= end_timestamp  # Stream started before or at end of range
+        if earliest_active <= f <= end_timestamp
     ]
 
     return filtered
