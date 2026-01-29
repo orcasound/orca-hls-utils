@@ -103,6 +103,11 @@ class DateRangeHLSStream:
         self.current_clip_start_time = self.start_unix_time
 
     def get_next_clip(self, current_clip_name=None):
+
+        if self.current_folder_index >= len(self.valid_folders):
+            self.is_end_of_stream = True
+            return None, None, None
+
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
         (
@@ -151,12 +156,26 @@ class DateRangeHLSStream:
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
-            # move to the next folder and increment the
-            # current_clip_start_time to the new
-            self.current_folder_index += 1
-            self.current_clip_start_time = self.valid_folders[
-                self.current_folder_index
-            ]
+
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                # add logger
+                # "Missing data, returning truncated file"
+                # "Adjusting end index:
+                #    from segment_end_index to num_total_segments"
+                segment_end_index = num_total_segments
+                if segment_end_index < segment_start_index:
+                    # add logger
+                    # No data found
+                    self.current_clip_start_time = self.end_unix_time
+                    return None, None, None
+            else:
+                # move to the next folder and increment the
+                # current_clip_start_time to the new
+
+                self.current_folder_index += 1
+                self.current_clip_start_time = self.valid_folders[
+                    self.current_folder_index
+                ]
             return None, None, None
 
         # Can get the whole segment so update the clip_start_time for the next
@@ -222,4 +241,7 @@ class DateRangeHLSStream:
 
     def is_stream_over(self):
         # returns true or false based on whether the stream is over
-        return int(self.current_clip_start_time) >= int(self.end_unix_time)
+        return (
+            int(self.current_clip_start_time) >= int(self.end_unix_time)
+            or self.is_end_of_stream
+        )
