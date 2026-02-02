@@ -137,6 +137,21 @@ class DateRangeHLSStream:
         )
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
+        print(num_total_segments)
+
+        if num_total_segments == 0:
+            # No segments in this folder, try next folder or end stream
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+            self.current_folder_index += 1
+            if self.current_folder_index >= len(self.valid.folders):
+                self.is_end_of_stream = True
+                return None, None, None
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
+
         target_duration = (
             sum([item.duration for item in stream_obj.segments])
             / num_total_segments
@@ -173,10 +188,13 @@ class DateRangeHLSStream:
                 # current_clip_start_time to the new
 
                 self.current_folder_index += 1
-                self.current_clip_start_time = self.valid_folders[
-                    self.current_folder_index
-                ]
-            return None, None, None
+                if self.current_folder_index >= len(self.valid_folders):
+                    self.is_end_of_stream = True
+                    return None, None, None
+                self.current_clip_start_time = int(
+                    self.valid_folders[self.current_folder_index]
+                )
+                return None, None, None
 
         # Can get the whole segment so update the clip_start_time for the next
         # clip
@@ -216,9 +234,13 @@ class DateRangeHLSStream:
             wav_file_path = os.path.join(self.wav_dir, audio_file)
             stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
             stream = ffmpeg.output(stream, wav_file_path)
-            ffmpeg.run(
-                stream, overwrite_output=self.overwrite_output, quiet=True
-            )
+            try:
+                ffmpeg.run(
+                    stream, overwrite_output=self.overwrite_output, quiet=True
+                )
+            except Exception as e:
+                shutil.copyfile(hls_file, "ts/badfile.ts")
+                raise e
 
         # If we're in demo mode, we need to fake timestamps to make it seem
         # like the date range is real-time
