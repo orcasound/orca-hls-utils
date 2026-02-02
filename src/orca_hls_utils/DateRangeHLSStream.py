@@ -183,7 +183,7 @@ class DateRangeHLSStream:
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
-          
+
             if self.current_folder_index + 1 >= len(self.valid_folders):
                 # add logger
                 # "Missing data, returning truncated file"
