@@ -34,16 +34,30 @@ class HLSStream:
     polling_interval = 60 sec
     """
 
-    def __init__(self, stream_base, polling_interval, wav_dir):
+    def __init__(self, stream_base, polling_interval, wav_dir, audio_offset=2):
         self.stream_base = stream_base
         self.polling_interval = polling_interval
         self.wav_dir = wav_dir
+        self.audio_offset = audio_offset
         bucket_folder = self.stream_base.split(
             "https://s3-us-west-2.amazonaws.com/"
         )[1]
         tokens = bucket_folder.split("/")
         self.s3_bucket = tokens[0]
         self.hydrophone_id = tokens[1]
+
+    def get_latest_folder_time(self):
+        latest = f"{self.stream_base}/latest.txt"
+        try:
+            with urllib.request.urlopen(latest) as response:
+                stream_id = response.read().decode("utf-8").strip()
+        except urllib.error.HTTPError as e:
+            print(f"Failed to fetch latest.txt: {e}")
+            return None
+        except urllib.error.URLError as e:
+            print(f"Failed to fetch latest.txt: {e}")
+            return None
+        return stream_id
 
     # this function grabs audio from last_end_time to
     def get_next_clip(self, current_clip_end_time):
@@ -59,15 +73,8 @@ class HLSStream:
 
         # get latest AWS bucket
         print("Listening to location {loc}".format(loc=self.stream_base))
-        latest = f"{self.stream_base}/latest.txt"
-        try:
-            with urllib.request.urlopen(latest) as response:
-                stream_id = response.read().decode("utf-8").strip()
-        except urllib.error.HTTPError as e:
-            print(f"Failed to fetch latest.txt: {e}")
-            return None, None, current_clip_end_time
-        except urllib.error.URLError as e:
-            print(f"Failed to fetch latest.txt: {e}")
+        stream_id = self.get_latest_folder_time()
+        if stream_id is None:
             return None, None, current_clip_end_time
 
         # stream_url for the current AWS bucket
@@ -113,11 +120,18 @@ class HLSStream:
                 current_clip_end_time_unix_pst, stream_id
             )
         )
+
+        # Currently there is a delay between the stream_id time and
+        # the actual start of the audio stream in the folder, so add
+        # an offset here to compensate.
+        time_since_folder_start -= self.audio_offset
+
         if time_since_folder_start < self.polling_interval + 20:
             # This implies that possibly a new folder was created
             # and we do not have enough data for a 1 minute clip + 20 second
             # buffer
             # we exit and try again after hls polling interval
+            print("not enough data for a 1 minute clip + 20 second buffer")
             return None, None, current_clip_end_time
 
         min_num_total_segments_required = math.ceil(
@@ -129,7 +143,11 @@ class HLSStream:
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         # Compute nominal end time
-        end_seconds = segment_end_index * target_duration + int(stream_id)
+        end_seconds = (
+            segment_end_index * target_duration
+            + int(stream_id)
+            + self.audio_offset
+        )
         end_utc = datetime.utcfromtimestamp(end_seconds)
         current_clip_end_time = end_utc
 
