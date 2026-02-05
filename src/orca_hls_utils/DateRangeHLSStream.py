@@ -103,6 +103,12 @@ class DateRangeHLSStream:
         )
         print("Found {} folders in date range".format(len(self.valid_folders)))
 
+        if not self.valid_folders:
+            raise IndexError(
+                f"No valid folders found in date range \
+                    {self.start_unix_time} to {self.end_unix_time}"
+            )
+
         self.current_folder_index = 0
         self.current_clip_start_time = self.start_unix_time
 
@@ -155,6 +161,7 @@ class DateRangeHLSStream:
             self.current_clip_start_time = int(
                 self.valid_folders[self.current_folder_index]
             )
+            return None, None, None
 
         target_duration = (
             sum([item.duration for item in stream_obj.segments])
