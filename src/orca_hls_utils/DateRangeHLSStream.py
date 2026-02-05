@@ -149,7 +149,7 @@ class DateRangeHLSStream:
                 self.is_end_of_stream = True
                 return None, None, None
             self.current_folder_index += 1
-            if self.current_folder_index >= len(self.valid.folders):
+            if self.current_folder_index >= len(self.valid_folders):
                 self.is_end_of_stream = True
                 return None, None, None
             self.current_clip_start_time = int(
