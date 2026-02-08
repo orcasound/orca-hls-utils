@@ -103,6 +103,12 @@ class DateRangeHLSStream:
         )
         print("Found {} folders in date range".format(len(self.valid_folders)))
 
+        if not self.valid_folders:
+            raise IndexError(
+                f"No valid folders found in date range \
+                    {self.start_unix_time} to {self.end_unix_time}"
+            )
+
         self.current_folder_index = 0
         self.current_clip_start_time = self.start_unix_time
 
@@ -139,7 +145,26 @@ class DateRangeHLSStream:
         stream_url = "{}/hls/{}/live.m3u8".format(
             (self.stream_base), (current_folder)
         )
-        stream_obj = m3u8.load(stream_url)
+
+        try:
+            stream_obj = m3u8.load(stream_url)
+        except Exception as e:
+            print(f"Failed to load m3u8 playlist from {stream_url}: {e}")
+            # Move to next folder or end stream
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+
+            self.current_folder_index += 1
+            if self.current_folder_index >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
+            return None, None, None
+
         num_total_segments = len(stream_obj.segments)
         print(num_total_segments)
 
@@ -149,12 +174,13 @@ class DateRangeHLSStream:
                 self.is_end_of_stream = True
                 return None, None, None
             self.current_folder_index += 1
-            if self.current_folder_index >= len(self.valid.folders):
+            if self.current_folder_index >= len(self.valid_folders):
                 self.is_end_of_stream = True
                 return None, None, None
             self.current_clip_start_time = int(
                 self.valid_folders[self.current_folder_index]
             )
+            return None, None, None
 
         target_duration = (
             sum([item.duration for item in stream_obj.segments])
