@@ -447,7 +447,9 @@ class TestEdgeCases(unittest.TestCase):
             mock_get_folders_between.return_value = mock_folders
 
             # Should raise an exception for invalid directory path
-            with self.assertRaises((OSError, PermissionError)):
+            with self.assertRaises(
+                (OSError, PermissionError, FileNotFoundError)
+            ):
                 DateRangeHLSStream(
                     self.stream_base,
                     self.polling_interval,
