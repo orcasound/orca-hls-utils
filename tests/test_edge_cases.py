@@ -360,7 +360,8 @@ class TestEdgeCases(unittest.TestCase):
         print("\n=== Testing leap year handling ===")
 
         # February 29, 2024 (leap year)
-        leap_day_timestamp = 1709251200  # 2024-02-29 12:00:00 UTC
+        # leap_day_timestamp = 1709251200
+        leap_day_timestamp = 1709164800  # 2024-02-29 12:00:00 UTC
 
         clipname, readable_datetime = (
             datetime_utils.get_clip_name_from_unix_time(
@@ -418,7 +419,7 @@ class TestEdgeCases(unittest.TestCase):
         # self.assertIn("2099_12_31", clipname)  # Adjusted for timezone
         # self.assertIn("2099_12_31", readable_datetime)
         self.assertIn("2100_01_01", clipname)  # Adjusted for timezone
-        self.assertIn("2099_01_01", readable_datetime)
+        self.assertIn("2100_01_01", readable_datetime)
 
         print(f"Far future timestamp {far_future_timestamp} -> {clipname}")
 
