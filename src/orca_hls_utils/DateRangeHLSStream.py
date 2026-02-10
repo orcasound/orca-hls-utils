@@ -103,10 +103,21 @@ class DateRangeHLSStream:
         )
         print("Found {} folders in date range".format(len(self.valid_folders)))
 
+        if not self.valid_folders:
+            raise IndexError(
+                f"No valid folders found in date range \
+                    {self.start_unix_time} to {self.end_unix_time}"
+            )
+
         self.current_folder_index = 0
         self.current_clip_start_time = self.start_unix_time
 
     def get_next_clip(self, current_clip_name=None):
+
+        if self.current_folder_index >= len(self.valid_folders):
+            self.is_end_of_stream = True
+            return None, None, None
+
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
         (
@@ -134,8 +145,43 @@ class DateRangeHLSStream:
         stream_url = "{}/hls/{}/live.m3u8".format(
             (self.stream_base), (current_folder)
         )
-        stream_obj = m3u8.load(stream_url)
+
+        try:
+            stream_obj = m3u8.load(stream_url)
+        except Exception as e:
+            print(f"Failed to load m3u8 playlist from {stream_url}: {e}")
+            # Move to next folder or end stream
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+
+            self.current_folder_index += 1
+            if self.current_folder_index >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
+            return None, None, None
+
         num_total_segments = len(stream_obj.segments)
+        print(num_total_segments)
+
+        if num_total_segments == 0:
+            # No segments in this folder, try next folder or end stream
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+            self.current_folder_index += 1
+            if self.current_folder_index >= len(self.valid_folders):
+                self.is_end_of_stream = True
+                return None, None, None
+            self.current_clip_start_time = int(
+                self.valid_folders[self.current_folder_index]
+            )
+            return None, None, None
+
         target_duration = (
             sum([item.duration for item in stream_obj.segments])
             / num_total_segments
@@ -163,16 +209,30 @@ class DateRangeHLSStream:
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
         if segment_end_index > num_total_segments:
-            # move to the next folder and increment the
-            # current_clip_start_time to the new
-            self.current_folder_index += 1
-            if self.current_folder_index >= len(self.valid_folders):
-                # No more folders available
+
+            if self.current_folder_index + 1 >= len(self.valid_folders):
+                # add logger
+                # "Missing data, returning truncated file"
+                # "Adjusting end index:
+                #    from segment_end_index to num_total_segments"
+                segment_end_index = num_total_segments
+                if segment_end_index < segment_start_index:
+                    # add logger
+                    # No data found
+                    self.current_clip_start_time = self.end_unix_time
+                    return None, None, None
+            else:
+                # move to the next folder and increment the
+                # current_clip_start_time to the new
+
+                self.current_folder_index += 1
+                if self.current_folder_index >= len(self.valid_folders):
+                    self.is_end_of_stream = True
+                    return None, None, None
+                self.current_clip_start_time = int(
+                    self.valid_folders[self.current_folder_index]
+                )
                 return None, None, None
-            self.current_clip_start_time = self.valid_folders[
-                self.current_folder_index
-            ]
-            return None, None, None
 
         # Can get the whole segment so update the clip_start_time for the next
         # clip
@@ -212,9 +272,13 @@ class DateRangeHLSStream:
             wav_file_path = os.path.join(self.wav_dir, audio_file)
             stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
             stream = ffmpeg.output(stream, wav_file_path)
-            ffmpeg.run(
-                stream, overwrite_output=self.overwrite_output, quiet=True
-            )
+            try:
+                ffmpeg.run(
+                    stream, overwrite_output=self.overwrite_output, quiet=True
+                )
+            except Exception as e:
+                shutil.copyfile(hls_file, "ts/badfile.ts")
+                raise e
 
         # If we're in demo mode, we need to fake timestamps to make it seem
         # like the date range is real-time
@@ -237,4 +301,7 @@ class DateRangeHLSStream:
 
     def is_stream_over(self):
         # returns true or false based on whether the stream is over
-        return int(self.current_clip_start_time) >= int(self.end_unix_time)
+        return (
+            int(self.current_clip_start_time) >= int(self.end_unix_time)
+            or self.is_end_of_stream
+        )
