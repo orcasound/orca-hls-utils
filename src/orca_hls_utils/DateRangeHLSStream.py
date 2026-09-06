@@ -109,12 +109,6 @@ class DateRangeHLSStream:
     def get_next_clip(self, current_clip_name=None):
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
-        (
-            clipname,
-            clip_start_time,
-        ) = datetime_utils.get_clip_name_from_unix_time(
-            self.folder_name.replace("_", "-"), self.current_clip_start_time
-        )
 
         # if real_time execution mode is specified
         if self.real_time:
@@ -136,9 +130,10 @@ class DateRangeHLSStream:
         )
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
-        target_duration = (
+        target_duration = round(
             sum([item.duration for item in stream_obj.segments])
-            / num_total_segments
+            / num_total_segments,
+            3,
         )
         num_segments_in_wav_duration = math.ceil(
             self.polling_interval_in_seconds / target_duration
@@ -173,6 +168,23 @@ class DateRangeHLSStream:
                 self.current_folder_index
             ]
             return None, None, None
+
+        # Compute the actual clip start from playlist segment indices,
+        # matching HLSStream.py (PR #29).  Returning the requested time
+        # can be up to one polling interval (60s) off (issue #46).
+        end_seconds = (
+            segment_end_index * target_duration
+            + int(current_folder)
+            + self.audio_offset
+        )
+        actual_start_seconds = end_seconds - self.polling_interval_in_seconds
+        (
+            clipname,
+            clip_start_time,
+        ) = datetime_utils.get_clip_name_from_unix_time(
+            self.folder_name.replace("_", "-"),
+            int(round(actual_start_seconds)),
+        )
 
         # Can get the whole segment so update the clip_start_time for the next
         # clip
