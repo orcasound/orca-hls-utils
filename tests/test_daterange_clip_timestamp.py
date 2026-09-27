@@ -2,7 +2,7 @@
 """Offline tests for DateRangeHLSStream playlist-aligned clip timestamps.
 
 These tests mock m3u8 playlists so they do not require live S3.  They
-assert that get_next_clip returns the actual segment start (issue #46)
+assert that get_next_clip returns the actual segment start
 rather than a copy of the requested time.
 """
 
