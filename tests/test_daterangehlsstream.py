@@ -405,7 +405,7 @@ def test_overwrite_output_true(default_stream_base):
         ),
         (
             # Time not on a segment boundary. Returned clip start must be the
-            # playlist-aligned segment start (issue #46), within
+            # playlist-aligned segment start, within
             # [request, request + 60s]. Filename timezone consistency is
             # tracked separately (issue #47).
             datetime(
