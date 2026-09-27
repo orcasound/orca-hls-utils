@@ -170,8 +170,8 @@ class DateRangeHLSStream:
             return None, None, None
 
         # Compute the actual clip start from playlist segment indices,
-        # matching HLSStream.py (PR #29).  Returning the requested time
-        # can be up to one polling interval (60s) off (issue #46).
+        # matching HLSStream.py.  Returning the requested time
+        # can be up to one polling interval (60s) off.
         end_seconds = (
             segment_end_index * target_duration
             + int(current_folder)
