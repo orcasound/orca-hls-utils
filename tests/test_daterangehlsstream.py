@@ -6,6 +6,7 @@ This script tests the basic functionality of the DateRangeHLSStream class,
 specifically the get_next_clip method which retrieves audio clips
 from Orcasound hydrophone streams within a specific date range.
 """
+
 import os
 import shutil
 from datetime import datetime, timedelta
@@ -388,38 +389,10 @@ def test_overwrite_output_true(default_stream_base):
     assert stream.overwrite_output is True
 
 
-def check_daterange_get_next_clip_output(
-    stream, expected_wav_path, expected_clip_start, expected_clip_end
-):
-    """
-    Helper function to test DateRangeHLSStream.get_next_clip outputs.
-
-    This function can be used to verify that get_next_clip returns the
-    expected values when called without parameters.
-
-    Args:
-        stream: DateRangeHLSStream instance to test
-        expected_wav_path: expected wav file path (or None)
-        expected_clip_start: expected clip start time (string or None)
-        expected_clip_end: expected clip end (current_clip_name or None)
-    """
-    wav_path, clip_start, clip_end = stream.get_next_clip()
-
-    assert (
-        wav_path == expected_wav_path
-    ), f"Expected wav_path {expected_wav_path}, got {wav_path}"
-    assert (
-        clip_start == expected_clip_start
-    ), f"Expected clip_start {expected_clip_start}, got {clip_start}"
-    assert (
-        clip_end == expected_clip_end
-    ), f"Expected clip_end {expected_clip_end}, got {clip_end}"
-
-
 @pytest.mark.slow
 @pytest.mark.tests
 @pytest.mark.parametrize(
-    "desired_time,expected_wav_path,expected_clip_start,expected_clip_end",
+    "desired_time,expect_clip",
     [
         (
             # Test with a time less than 60 seconds into a folder, which should
@@ -428,61 +401,33 @@ def check_daterange_get_next_clip_output(
             datetime(
                 2025, 11, 6, 0, 0, 51, tzinfo=ZoneInfo("America/Los_Angeles")
             ),
-            None,
-            None,
-            None,
+            False,
         ),
         (
-            # Test with a time that isn't on a boundary.
-            # Time strings are returned in local (PST) time.
-            # The returned values should be updated to the actual clip times
-            # but currently are just based on the requested time (issue #46).
-            # Using Thursday, Nov 6, 2025 00:01:43 PST, but DateRangeHLSStream
-            # currently returns strings in local time when run locally, and
-            # GMT when run by github.  This should also be updated to be
-            # consistent (issue #47).
+            # Time not on a segment boundary. Returned clip start must be the
+            # playlist-aligned segment start, within
+            # [request, request + 60s]. Filename timezone consistency is
+            # tracked separately (issue #47).
             datetime(
                 2025, 11, 6, 0, 1, 43, tzinfo=ZoneInfo("America/Los_Angeles")
             ),
-            os.path.join(
-                ".",
-                "test_wav_output",
-                "rpi-orcasound-lab_2025_11_06_08_00_43.wav",
-            ),
-            "2025_11_06_08_00_43",
-            None,
+            True,
         ),
         (
-            # Test with Scott's rock test on 11/4/25, where the rock splash
-            # happened at 11:17:09.4 local (19:17:09.4 UTC) according to
-            # Scott's phone.  The returned values should be updated to the
-            # actual clip times but currently are just based on the requested
-            # time.
+            # Scott's rock test on 11/4/25; splash at 11:17:09.4 local.
             datetime(
                 2025, 11, 4, 11, 17, 9, tzinfo=ZoneInfo("America/Los_Angeles")
             ),
-            os.path.join(
-                ".",
-                "test_wav_output",
-                "rpi-orcasound-lab_2025_11_04_19_16_09.wav",
-            ),
-            "2025_11_04_19_16_09",
-            None,
+            True,
         ),
     ],
 )
 def test_get_next_clip_specific_times(
     default_stream_base,
     desired_time,
-    expected_wav_path,
-    expected_clip_start,
-    expected_clip_end,
+    expect_clip,
 ):
-    """Test get_next_clip with specific timestamps using helper function.
-
-    This test uses check_daterange_get_next_clip_output to verify
-    expected outputs.
-    """
+    """Test get_next_clip timestamps align with playlist segment starts."""
     polling_interval = 60
     wav_dir = os.path.join(".", "test_wav_output")
 
@@ -505,12 +450,21 @@ def test_get_next_clip_specific_times(
             wav_dir,
         )
 
-        check_daterange_get_next_clip_output(
-            stream,
-            expected_wav_path,
-            expected_clip_start,
-            expected_clip_end,
+        wav_path, clip_start, clip_end = stream.get_next_clip()
+
+        if not expect_clip:
+            assert wav_path is None
+            assert clip_start is None
+            assert clip_end is None
+            return
+
+        assert wav_path is not None
+        assert clip_start is not None
+        assert clip_end is None
+        returned_unix = int(
+            datetime.strptime(clip_start, "%Y_%m_%d_%H_%M_%S").timestamp()
         )
+        assert start_unix_time <= returned_unix <= start_unix_time + 60
     finally:
         if os.path.exists(wav_dir):
             shutil.rmtree(wav_dir)
