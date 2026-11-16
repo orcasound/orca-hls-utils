@@ -111,7 +111,8 @@ class HLSStream:
             timeline = playlist_utils.get_playlist_timeline(
                 stream_obj, int(stream_id), self.audio_offset
             )
-            # Convert the requested clip window to Unix seconds for timeline matching.
+            # Convert the requested clip window to Unix seconds for timeline
+            # matching.
             request_end = playlist_utils.unix_time_from_utc_datetime(
                 current_clip_end_time
             )
@@ -167,8 +168,8 @@ class HLSStream:
                         timeline,
                     )
 
-            # Choose a contiguous segment set that ends at/after request_end and
-            # covers at least one polling interval.
+            # Choose a contiguous segment set that ends at/after request_end
+            # and covers at least one polling interval.
             selected_segments = playlist_utils.select_segments_ending_at(
                 timeline, request_end, self.polling_interval
             )
@@ -203,7 +204,8 @@ class HLSStream:
                 wav_file_path = os.path.join(self.wav_dir, audio_file)
                 hls_file_path = os.path.join(tmp_path, hls_file)
 
-                # Concatenate segments before converting to the destination WAV.
+                # Concatenate segments before converting to the destination
+                # WAV.
                 with open(hls_file_path, "wb") as outfile:
                     for fname in file_names:
                         with open(

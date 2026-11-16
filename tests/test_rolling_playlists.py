@@ -115,7 +115,8 @@ def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
 
 @pytest.mark.tests
 def test_daterange_nonzero_media_sequence_uses_timeline(monkeypatch, tmp_path):
-    """DateRange stream uses timeline selection when media sequence is nonzero."""
+    """DateRange stream uses timeline selection when media sequence is
+    nonzero."""
     downloaded = []
     playlist = m3u8.loads(
         _playlist(20, 10, program_date_time=False),
@@ -226,7 +227,8 @@ def test_daterange_legacy_path_resolves_absolute_segment_uris(
 def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
     monkeypatch, tmp_path
 ):
-    """Rolling HLS backfills by sequence when request starts before live window."""
+    """Rolling HLS backfills by sequence when request starts before live
+    window."""
     live = m3u8.loads(
         _playlist(3876, 10),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
@@ -389,7 +391,8 @@ def test_hls_legacy_path_resolves_absolute_segment_uris(monkeypatch, tmp_path):
 
 @pytest.mark.tests
 def test_hls_older_window_uses_archive_playlist(monkeypatch, tmp_path):
-    """HLS loads archive playlist when the requested clip predates live coverage."""
+    """HLS loads archive playlist when the requested clip predates live
+    coverage."""
     loaded_urls = []
     downloaded = []
     live = m3u8.loads(
