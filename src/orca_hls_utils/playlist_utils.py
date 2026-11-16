@@ -1,0 +1,316 @@
+import math
+import re
+import urllib.error
+import urllib.request
+from collections import namedtuple
+from datetime import timezone
+from urllib.parse import urljoin, urlsplit, urlunsplit
+
+import m3u8
+
+PlaylistSegment = namedtuple(
+    "PlaylistSegment",
+    ["segment", "sequence", "start", "duration", "url", "approximate"],
+)
+PlaylistSegment.__new__.__defaults__ = (False,)
+
+
+def url_exists(url):
+    """Return whether an inferred segment URL exists via HTTP HEAD."""
+    request = urllib.request.Request(url, method="HEAD")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return 200 <= response.status < 300
+    except urllib.error.URLError:
+        return False
+
+
+def load_archive_or_live(stream_base, folder):
+    """Load a full archive playlist when available, otherwise the live one."""
+    for name in ("archive.m3u8", "live.m3u8"):
+        url = "{}/hls/{}/{}".format(stream_base, folder, name)
+        try:
+            playlist = m3u8.load(url)
+            if playlist.segments:
+                return playlist
+        except Exception:
+            if name == "live.m3u8":
+                raise
+
+
+def load_archive_and_live(stream_base, folder):
+    """Load both manifests when possible, preferring archive as fallback."""
+    archive_url = "{}/hls/{}/archive.m3u8".format(stream_base, folder)
+    live_url = "{}/hls/{}/live.m3u8".format(stream_base, folder)
+    try:
+        archive = m3u8.load(archive_url)
+    except Exception:
+        archive = None
+    try:
+        live = m3u8.load(live_url)
+    except Exception:
+        if archive is None:
+            raise
+        live = None
+    return archive, live
+
+
+def resolve_segment_url(segment):
+    """Resolve a segment URI against its playlist base URI."""
+    return urljoin(segment.base_uri or "", segment.uri)
+
+
+def segment_filename(segment):
+    """Return the local filename for a segment URI."""
+    return resolve_segment_url(segment).rsplit("/", 1)[-1]
+
+
+def get_playlist_timeline(playlist, folder_epoch, audio_offset):
+    """Return playlist segments with sequence numbers and estimated starts."""
+    segments = playlist.segments
+    if not segments:
+        return []
+
+    # Build per-segment timing inputs from EXTINF durations and optional
+    # PDT tags.
+    durations = [float(segment.duration) for segment in segments]
+    sequence_start = getattr(playlist, "media_sequence", 0) or 0
+    dates = [
+        getattr(segment, "current_program_date_time", None)
+        or getattr(segment, "program_date_time", None)
+        for segment in segments
+    ]
+    first_date = next(
+        (index for index, value in enumerate(dates) if value is not None), None
+    )
+    approximate = first_date is None and sequence_start > 0
+
+    if first_date is not None:
+        # Anchor at the first known PDT, then infer the rest by walking
+        # backward/forward while preserving monotonic, non-overlapping starts.
+        starts = [None] * len(segments)
+        starts[first_date] = dates[first_date].timestamp()
+        for index in range(first_date - 1, -1, -1):
+            starts[index] = starts[index + 1] - durations[index]
+        for index in range(first_date + 1, len(segments)):
+            previous_end = starts[index - 1] + durations[index - 1]
+            program_date_time = (
+                dates[index].timestamp()
+                if dates[index] is not None
+                else previous_end
+            )
+            starts[index] = max(program_date_time, previous_end)
+    else:
+        # Without PDT, estimate starts from folder epoch and mean segment
+        # length.
+        mean_duration = sum(durations) / len(durations)
+        starts = []
+        current_start = folder_epoch + audio_offset
+        for index in range(len(segments)):
+            if sequence_start:
+                current_start = (
+                    folder_epoch
+                    + audio_offset
+                    + (sequence_start + index) * mean_duration
+                )
+            starts.append(current_start)
+            current_start += durations[index]
+
+    return [
+        PlaylistSegment(
+            segment,
+            sequence_start + index,
+            starts[index],
+            durations[index],
+            resolve_segment_url(segment),
+            approximate=approximate,
+        )
+        for index, segment in enumerate(segments)
+    ]
+
+
+def has_program_date_time(playlist):
+    """Return True when any segment includes a program date-time value."""
+    return any(
+        getattr(segment, "current_program_date_time", None)
+        or getattr(segment, "program_date_time", None)
+        for segment in playlist.segments
+    )
+
+
+def extrapolate_before(timeline, start_time, min_sequence=-1):
+    """Estimate earlier rolling-window segments from the first PDT."""
+    if not timeline or timeline[0].sequence <= 0:
+        return []
+
+    first = timeline[0]
+    delta = first.start - start_time
+    if delta <= 0:
+        return []
+    mean_duration = sum(item.duration for item in timeline) / len(timeline)
+    parsed_url = urlsplit(first.url)
+    segment_name = parsed_url.path.rsplit("/", 1)[-1]
+    match = re.match(r"^(.*?)(\d+)(\.ts)$", segment_name)
+    if not match or mean_duration <= 0:
+        return []
+
+    # Keep historical filename zero-padding behavior when synthesizing URLs.
+    width = len(match.group(2)) if match.group(2).startswith("0") else 3
+    base_uri = urlunsplit(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path.rsplit("/", 1)[0] + "/",
+            "",
+            "",
+        )
+    )
+    count = min(first.sequence, math.ceil(delta / mean_duration - 1e-9))
+    earlier = []
+    for distance in range(count, 0, -1):
+        sequence = first.sequence - distance
+        if sequence <= min_sequence:
+            continue
+        uri = "{}{:0{}d}{}".format(
+            match.group(1), sequence, width, match.group(3)
+        )
+        earlier.append(
+            PlaylistSegment(
+                None,
+                sequence,
+                first.start - distance * mean_duration,
+                mean_duration,
+                base_uri + uri,
+                True,
+            )
+        )
+    return earlier
+
+
+def merge_timelines(*timelines):
+    """Merge timelines by sequence number, preferring later (newer) entries."""
+    segments = {}
+    for timeline in timelines:
+        for item in timeline:
+            segments[item.sequence] = item
+    return [segments[index] for index in sorted(segments)]
+
+
+def fill_timeline_gaps(
+    timeline, start_time, end_time, url_exists, extrapolate_start=True
+):
+    """Add sequence-numbered segments missing from a playlist timeline.
+
+    PDT anchors the inferred timestamps, while the mean EXTINF from the known
+    timeline estimates missing segment durations. Every inferred URL is checked
+    so an outage remains a sequence gap rather than appearing as valid audio.
+    """
+    if not timeline:
+        return []
+
+    timeline = sorted(timeline, key=lambda item: item.sequence)
+    mean_duration = sum(item.duration for item in timeline) / len(timeline)
+    candidates = []
+
+    # Optionally infer missing leading segments before the first known entry.
+    first = timeline[0]
+    if extrapolate_start and first.sequence > 0 and first.start > start_time:
+        candidates.extend(extrapolate_before(timeline, start_time))
+
+    # Infer interior gaps where sequence numbers jump but timing indicates
+    # room.
+    for previous, following in zip(timeline, timeline[1:]):
+        if following.sequence <= previous.sequence + 1:
+            continue
+        gap_start = max(start_time, previous.start + previous.duration)
+        if gap_start >= following.start:
+            continue
+        candidates.extend(
+            extrapolate_before(
+                [following],
+                following.start
+                - (following.sequence - previous.sequence - 1) * mean_duration,
+                previous.sequence,
+            )
+        )
+
+    known_sequences = {item.sequence for item in timeline}
+    # Keep only inferred segments that overlap the request window and resolve.
+    existing = [
+        item
+        for item in candidates
+        if item.sequence not in known_sequences
+        and item.start < end_time
+        and item.start + item.duration > start_time
+        and url_exists(item.url)
+    ]
+    return merge_timelines(timeline, existing)
+
+
+def select_segments_from_start(timeline, start_time, duration):
+    """Select a contiguous clip beginning at the next segment start."""
+    if not timeline:
+        return []
+    # Reject clearly stale requests unless this looks like sequence-zero
+    # startup.
+    if timeline[0].start > start_time + 1e-6 and (
+        timeline[0].sequence > 0
+        or timeline[0].start - start_time > timeline[0].duration
+    ):
+        return []
+    start_index = next(
+        (
+            index
+            for index, item in enumerate(timeline)
+            if item.start >= start_time - 1e-6
+        ),
+        None,
+    )
+    if start_index is None:
+        return []
+
+    selected = []
+    elapsed = 0.0
+    for item in timeline[start_index:]:
+        # Restart accumulation when sequence continuity is broken.
+        if selected and item.sequence != selected[-1].sequence + 1:
+            selected = []
+            elapsed = 0.0
+        selected.append(item)
+        elapsed += item.duration
+        if elapsed >= duration:
+            return selected
+    return []
+
+
+def select_segments_ending_at(timeline, end_time, duration):
+    """Select a contiguous clip ending at the next segment boundary."""
+    if not timeline or timeline[0].start > end_time + 1e-6:
+        return []
+    end_index = next(
+        (
+            index
+            for index, item in enumerate(timeline)
+            if item.start + item.duration >= end_time - 1e-6
+        ),
+        None,
+    )
+    if end_index is None:
+        return []
+
+    selected = []
+    elapsed = 0.0
+    # Walk backward from the end boundary and stop on sequence discontinuity.
+    for item in reversed(timeline[: end_index + 1]):
+        if selected and item.sequence + 1 != selected[0].sequence:
+            break
+        selected.insert(0, item)
+        elapsed += item.duration
+        if elapsed >= duration:
+            return selected
+    return []
+
+
+def unix_time_from_utc_datetime(value):
+    """Convert a UTC datetime value to a Unix timestamp."""
+    return value.replace(tzinfo=timezone.utc).timestamp()

@@ -65,7 +65,7 @@ def _install_offline_stream_fakes(
         lambda folders, start, end: [int(folder_epoch)],
     )
     monkeypatch.setattr(
-        "orca_hls_utils.DateRangeHLSStream.m3u8.load",
+        "orca_hls_utils.playlist_utils.m3u8.load",
         lambda url: _FakePlaylist(num_segments, duration),
     )
 

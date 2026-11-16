@@ -9,13 +9,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import ffmpeg
-import m3u8
 
 # from botocore import UNSIGNED
 # from botocore.config import Config
 from pytz import timezone
 
-from . import datetime_utils, s3_utils, scraper
+from . import datetime_utils, playlist_utils, s3_utils, scraper
 
 
 def get_readable_clipname(hydrophone_id, cliptime_utc):
@@ -66,6 +65,7 @@ class DateRangeHLSStream:
         self.real_time = real_time
         self.is_end_of_stream = False
         self.audio_offset = audio_offset
+        self.last_clip_approximate = False
 
         # Create wav dir if necessary
         Path(self.wav_dir).mkdir(parents=True, exist_ok=True)
@@ -106,7 +106,37 @@ class DateRangeHLSStream:
         self.current_folder_index = 0
         self.current_clip_start_time = self.start_unix_time
 
+    def _advance_to_next_folder(self):
+        """Move to a later session folder within the requested range."""
+        self.current_folder_index += 1
+        if self.current_folder_index >= len(self.valid_folders):
+            self.current_folder_index = len(self.valid_folders)
+            self.current_clip_start_time = self.end_unix_time
+            return False
+
+        next_folder = self.valid_folders[self.current_folder_index]
+        if next_folder > self.end_unix_time:
+            self.current_folder_index = len(self.valid_folders)
+            self.current_clip_start_time = self.end_unix_time
+            return False
+        self.current_clip_start_time = max(
+            self.current_clip_start_time, next_folder
+        )
+        return True
+
     def get_next_clip(self, current_clip_name=None):
+        self.last_clip_approximate = False
+        # Never try a prior day's playlist for a clip starting in the next
+        # session folder; clips are kept within a single folder's sequence.
+        while (
+            self.current_folder_index + 1 < len(self.valid_folders)
+            and self.current_clip_start_time
+            >= self.valid_folders[self.current_folder_index + 1]
+        ):
+            self.current_folder_index += 1
+        if self.current_folder_index >= len(self.valid_folders):
+            return None, None, None
+
         # Get current folder
         current_folder = int(self.valid_folders[self.current_folder_index])
 
@@ -123,12 +153,17 @@ class DateRangeHLSStream:
             if time_to_sleep > 0:
                 time.sleep(time_to_sleep)
 
-        # read in current m3u8 file
-        # stream_url for the current AWS folder
-        stream_url = "{}/hls/{}/live.m3u8".format(
-            (self.stream_base), (current_folder)
+        # Prefer the full archive for historical reads, with live fallback.
+        archive, live = playlist_utils.load_archive_and_live(
+            self.stream_base, current_folder
         )
-        stream_obj = m3u8.load(stream_url)
+        stream_obj = (
+            archive if archive is not None and archive.segments else live
+        )
+        if stream_obj is None or not stream_obj.segments:
+            if not self._advance_to_next_folder():
+                return None, None, None
+            return None, None, None
         num_total_segments = len(stream_obj.segments)
         target_duration = round(
             sum([item.duration for item in stream_obj.segments])
@@ -157,27 +192,71 @@ class DateRangeHLSStream:
         )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
-        if segment_end_index > num_total_segments:
-            # move to the next folder and increment the
-            # current_clip_start_time to the new
-            self.current_folder_index += 1
-            if self.current_folder_index >= len(self.valid_folders):
-                # No more folders available
+        # Prefer timeline-based segment selection when sequence numbers or
+        # program date-time metadata are available in the playlist.
+        selected_segments = None
+        if (
+            getattr(stream_obj, "media_sequence", 0) or 0
+        ) > 0 or playlist_utils.has_program_date_time(stream_obj):
+            timeline = playlist_utils.get_playlist_timeline(
+                stream_obj, current_folder, self.audio_offset
+            )
+            # Merge the live edge over the archive tail so recent segments are
+            # included even while archive.m3u8 is waiting for its next upload.
+            if archive is not None and live is not None:
+                timeline = playlist_utils.merge_timelines(
+                    playlist_utils.get_playlist_timeline(
+                        archive, current_folder, self.audio_offset
+                    ),
+                    playlist_utils.get_playlist_timeline(
+                        live, current_folder, self.audio_offset
+                    ),
+                )
+            # Sequence gaps can be bridged only when the inferred .ts exists;
+            # otherwise selection below will stop at the missing sequence.
+            timeline = playlist_utils.fill_timeline_gaps(
+                timeline,
+                float(self.current_clip_start_time),
+                float(self.current_clip_start_time)
+                + self.polling_interval_in_seconds,
+                playlist_utils.url_exists,
+                extrapolate_start=(
+                    timeline[0].start - self.current_clip_start_time <= 180
+                ),
+            )
+            selected_segments = playlist_utils.select_segments_from_start(
+                timeline,
+                float(self.current_clip_start_time),
+                self.polling_interval_in_seconds,
+            )
+
+        # If we cannot build a complete clip from this folder, advance to the
+        # next folder and try again.
+        if (
+            selected_segments is None
+            and segment_end_index > num_total_segments
+        ) or (selected_segments is not None and not selected_segments):
+            # Move forward only when a session folder remains in this range.
+            if not self._advance_to_next_folder():
                 return None, None, None
-            self.current_clip_start_time = self.valid_folders[
-                self.current_folder_index
-            ]
             return None, None, None
 
         # Compute the actual clip start from playlist segment indices,
         # matching HLSStream.py.  Returning the requested time
         # can be up to one polling interval (60s) off.
-        end_seconds = (
-            segment_end_index * target_duration
-            + int(current_folder)
-            + self.audio_offset
-        )
-        actual_start_seconds = end_seconds - self.polling_interval_in_seconds
+        if selected_segments is None:
+            end_seconds = (
+                segment_end_index * target_duration
+                + int(current_folder)
+                + self.audio_offset
+            )
+            actual_start_seconds = (
+                end_seconds - self.polling_interval_in_seconds
+            )
+            segment_indices = range(segment_start_index, segment_end_index)
+        else:
+            actual_start_seconds = selected_segments[0].start
+            segment_indices = selected_segments
         (
             clipname,
             clip_start_time,
@@ -188,29 +267,36 @@ class DateRangeHLSStream:
 
         # Can get the whole segment so update the clip_start_time for the next
         # clip
-        # We do this before we actually do the pulling in case there is a
-        # problem with this clip
-        self.current_clip_start_time = (
-            datetime_utils.add_interval_to_unix_time(
-                self.current_clip_start_time, self.polling_interval_in_seconds
-            )
-        )
-
         # Create tmp path to hold .ts segments
         with TemporaryDirectory() as tmp_path:
             os.makedirs(tmp_path, exist_ok=True)
 
             file_names = []
-            for i in range(segment_start_index, segment_end_index):
-                audio_segment = stream_obj.segments[i]
-                base_path = audio_segment.base_uri
-                file_name = audio_segment.uri
-                audio_url = base_path + file_name
+            for item in segment_indices:
+                audio_segment = (
+                    stream_obj.segments[item]
+                    if selected_segments is None
+                    else item
+                )
+                file_name = (
+                    playlist_utils.segment_filename(audio_segment)
+                    if selected_segments is None
+                    else audio_segment.url.rsplit("/", 1)[-1]
+                )
+                audio_url = (
+                    playlist_utils.resolve_segment_url(audio_segment)
+                    if selected_segments is None
+                    else audio_segment.url
+                )
                 try:
                     scraper.download_from_url(audio_url, tmp_path)
                     file_names.append(file_name)
-                except Exception:
-                    print("Skipping", audio_url, ": error.")
+                except Exception as exc:
+                    raise RuntimeError(
+                        "Failed to download selected segment {}".format(
+                            audio_url
+                        )
+                    ) from exc
 
             # concatentate all .ts files
             hls_file = os.path.join(tmp_path, Path(clipname + ".ts"))
@@ -226,6 +312,28 @@ class DateRangeHLSStream:
             stream = ffmpeg.output(stream, wav_file_path)
             ffmpeg.run(
                 stream, overwrite_output=self.overwrite_output, quiet=True
+            )
+
+        # Advance only after every selected segment has been converted; failed
+        # downloads must not yield a shorter clip or consume requested time.
+        if selected_segments is not None:
+            selected_end = (
+                selected_segments[-1].start + selected_segments[-1].duration
+            )
+            self.current_clip_start_time = max(
+                self.current_clip_start_time
+                + self.polling_interval_in_seconds,
+                selected_end,
+            )
+            self.last_clip_approximate = any(
+                item.approximate for item in selected_segments
+            )
+        else:
+            self.current_clip_start_time = (
+                datetime_utils.add_interval_to_unix_time(
+                    self.current_clip_start_time,
+                    self.polling_interval_in_seconds,
+                )
             )
 
         # If we're in demo mode, we need to fake timestamps to make it seem
