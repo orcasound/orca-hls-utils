@@ -158,9 +158,7 @@ class DateRangeHLSStream:
             self.stream_base, current_folder
         )
         stream_obj = (
-            archive
-            if archive is not None and archive.segments
-            else live
+            archive if archive is not None and archive.segments else live
         )
         if stream_obj is None or not stream_obj.segments:
             if not self._advance_to_next_folder():
@@ -292,8 +290,9 @@ class DateRangeHLSStream:
                     file_names.append(file_name)
                 except Exception as exc:
                     raise RuntimeError(
-                        "Failed to download selected segment {}"
-                        .format(audio_url)
+                        "Failed to download selected segment {}".format(
+                            audio_url
+                        )
                     ) from exc
 
             # concatentate all .ts files

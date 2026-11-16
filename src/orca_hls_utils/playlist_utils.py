@@ -207,9 +207,7 @@ def fill_timeline_gaps(
 
     first = timeline[0]
     if extrapolate_start and first.sequence > 0 and first.start > start_time:
-        candidates.extend(
-            extrapolate_before(timeline, start_time)
-        )
+        candidates.extend(extrapolate_before(timeline, start_time))
 
     for previous, following in zip(timeline, timeline[1:]):
         if following.sequence <= previous.sequence + 1:
@@ -221,8 +219,7 @@ def fill_timeline_gaps(
             extrapolate_before(
                 [following],
                 following.start
-                - (following.sequence - previous.sequence - 1)
-                * mean_duration,
+                - (following.sequence - previous.sequence - 1) * mean_duration,
                 previous.sequence,
             )
         )

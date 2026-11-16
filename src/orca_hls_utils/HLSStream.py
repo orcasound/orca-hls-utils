@@ -107,9 +107,7 @@ class HLSStream:
             (
                 int(folder)
                 for folder in folders
-                if request_start - 86400
-                <= int(folder)
-                < int(stream_id)
+                if request_start - 86400 <= int(folder) < int(stream_id)
             ),
             reverse=True,
         )

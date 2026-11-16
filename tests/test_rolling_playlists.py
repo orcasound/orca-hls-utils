@@ -5,8 +5,7 @@ from pathlib import Path
 import m3u8
 import pytest
 
-from orca_hls_utils import playlist_utils
-from orca_hls_utils import s3_utils
+from orca_hls_utils import playlist_utils, s3_utils
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from orca_hls_utils.HLSStream import HLSStream
 
@@ -250,9 +249,7 @@ def test_daterange_bridges_archive_lag_only_for_existing_segments(
 
 
 @pytest.mark.tests
-def test_daterange_download_failure_keeps_clip_pending(
-    monkeypatch, tmp_path
-):
+def test_daterange_download_failure_keeps_clip_pending(monkeypatch, tmp_path):
     """A failed segment download leaves the requested clip pending."""
     playlist = m3u8.loads(
         _playlist(0, 20),
@@ -582,9 +579,7 @@ def test_start_selector_does_not_join_segments_across_a_gap():
         playlist_utils.PlaylistSegment(None, 3, 30, 10, "live003.ts"),
     ]
 
-    selected = playlist_utils.select_segments_from_start(
-        timeline, 0, 20
-    )
+    selected = playlist_utils.select_segments_from_start(timeline, 0, 20)
 
     assert [item.sequence for item in selected] == [2, 3]
 
