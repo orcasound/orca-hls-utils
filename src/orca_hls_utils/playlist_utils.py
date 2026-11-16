@@ -1,5 +1,7 @@
 import math
 import re
+import urllib.error
+import urllib.request
 from collections import namedtuple
 from datetime import timezone
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -7,8 +9,20 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 import m3u8
 
 PlaylistSegment = namedtuple(
-    "PlaylistSegment", ["segment", "sequence", "start", "duration", "url"]
+    "PlaylistSegment",
+    ["segment", "sequence", "start", "duration", "url", "approximate"],
 )
+PlaylistSegment.__new__.__defaults__ = (False,)
+
+
+def url_exists(url):
+    """Return whether an inferred segment URL exists via HTTP HEAD."""
+    request = urllib.request.Request(url, method="HEAD")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return 200 <= response.status < 300
+    except urllib.error.URLError:
+        return False
 
 
 def load_archive_or_live(stream_base, folder):
@@ -22,6 +36,23 @@ def load_archive_or_live(stream_base, folder):
         except Exception:
             if name == "live.m3u8":
                 raise
+
+
+def load_archive_and_live(stream_base, folder):
+    """Load both manifests when possible, preferring archive as fallback."""
+    archive_url = "{}/hls/{}/archive.m3u8".format(stream_base, folder)
+    live_url = "{}/hls/{}/live.m3u8".format(stream_base, folder)
+    try:
+        archive = m3u8.load(archive_url)
+    except Exception:
+        archive = None
+    try:
+        live = m3u8.load(live_url)
+    except Exception:
+        if archive is None:
+            raise
+        live = None
+    return archive, live
 
 
 def resolve_segment_url(segment):
@@ -50,6 +81,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
     first_date = next(
         (index for index, value in enumerate(dates) if value is not None), None
     )
+    approximate = first_date is None and sequence_start > 0
 
     if first_date is not None:
         starts = [None] * len(segments)
@@ -85,6 +117,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
             starts[index],
             durations[index],
             resolve_segment_url(segment),
+            approximate=approximate,
         )
         for index, segment in enumerate(segments)
     ]
@@ -141,6 +174,7 @@ def extrapolate_before(timeline, start_time, min_sequence=-1):
                 first.start - distance * mean_duration,
                 mean_duration,
                 base_uri + uri,
+                True,
             )
         )
     return earlier
@@ -155,9 +189,64 @@ def merge_timelines(*timelines):
     return [segments[index] for index in sorted(segments)]
 
 
+def fill_timeline_gaps(
+    timeline, start_time, end_time, url_exists, extrapolate_start=True
+):
+    """Add sequence-numbered segments missing from a playlist timeline.
+
+    PDT anchors the inferred timestamps, while the mean EXTINF from the known
+    timeline estimates missing segment durations. Every inferred URL is checked
+    so an outage remains a sequence gap rather than appearing as valid audio.
+    """
+    if not timeline:
+        return []
+
+    timeline = sorted(timeline, key=lambda item: item.sequence)
+    mean_duration = sum(item.duration for item in timeline) / len(timeline)
+    candidates = []
+
+    first = timeline[0]
+    if extrapolate_start and first.sequence > 0 and first.start > start_time:
+        candidates.extend(
+            extrapolate_before(timeline, start_time)
+        )
+
+    for previous, following in zip(timeline, timeline[1:]):
+        if following.sequence <= previous.sequence + 1:
+            continue
+        gap_start = max(start_time, previous.start + previous.duration)
+        if gap_start >= following.start:
+            continue
+        candidates.extend(
+            extrapolate_before(
+                [following],
+                following.start
+                - (following.sequence - previous.sequence - 1)
+                * mean_duration,
+                previous.sequence,
+            )
+        )
+
+    known_sequences = {item.sequence for item in timeline}
+    existing = [
+        item
+        for item in candidates
+        if item.sequence not in known_sequences
+        and item.start < end_time
+        and item.start + item.duration > start_time
+        and url_exists(item.url)
+    ]
+    return merge_timelines(timeline, existing)
+
+
 def select_segments_from_start(timeline, start_time, duration):
     """Select a contiguous clip beginning at the next segment start."""
-    if not timeline or timeline[0].start > start_time + 1e-6:
+    if not timeline:
+        return []
+    if timeline[0].start > start_time + 1e-6 and (
+        timeline[0].sequence > 0
+        or timeline[0].start - start_time > timeline[0].duration
+    ):
         return []
     start_index = next(
         (
@@ -174,7 +263,8 @@ def select_segments_from_start(timeline, start_time, duration):
     elapsed = 0.0
     for item in timeline[start_index:]:
         if selected and item.sequence != selected[-1].sequence + 1:
-            break
+            selected = []
+            elapsed = 0.0
         selected.append(item)
         elapsed += item.duration
         if elapsed >= duration:

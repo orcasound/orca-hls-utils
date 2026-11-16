@@ -45,17 +45,11 @@ def get_all_folders(bucket: str, prefix: str) -> List[str]:
 def get_folders_between_timestamp(
     bucket_list: List[str], start_time: str, end_time: str
 ) -> List[int]:
-    bucket_list = [int(bucket) for bucket in bucket_list]
-    start_index = 0
-    end_index = len(bucket_list) - 1
-    print(start_index)
-    print(bucket_list[-1])
-    print(int(start_time))
-    while int(bucket_list[start_index]) < int(start_time):
-        start_index += 1
-        if start_index == len(bucket_list):
-            break
+    folders = sorted(int(bucket) for bucket in bucket_list)
+    if not folders:
+        return []
 
-    while int(bucket_list[end_index]) > int(end_time):
-        end_index -= 1
-    return bucket_list[start_index - 1 : end_index + 1]
+    # A session folder may start up to a day before its audio is requested.
+    earliest = int(start_time) - 86400
+    latest = int(end_time)
+    return [folder for folder in folders if earliest <= folder <= latest]
