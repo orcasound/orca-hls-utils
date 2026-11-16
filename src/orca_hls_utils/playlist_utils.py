@@ -31,7 +31,7 @@ def resolve_segment_url(segment):
 
 def segment_filename(segment):
     """Return the local filename for a segment URI."""
-    return urlsplit(resolve_segment_url(segment)).path.rsplit("/", 1)[-1]
+    return resolve_segment_url(segment).rsplit("/", 1)[-1]
 
 
 def get_playlist_timeline(playlist, folder_epoch, audio_offset):
