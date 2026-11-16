@@ -1,5 +1,5 @@
 import importlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import m3u8
@@ -16,7 +16,13 @@ STREAM_BASE = (
 )
 
 
-def _playlist(first, count, uri="live{:03d}.ts"):
+def _playlist(
+    first,
+    count,
+    uri="live{:03d}.ts",
+    audio_offset=2,
+    program_date_time_offset=0,
+):
     lines = [
         "#EXTM3U",
         "#EXT-X-VERSION:3",
@@ -25,7 +31,11 @@ def _playlist(first, count, uri="live{:03d}.ts"):
     ]
     for sequence in range(first, first + count):
         start = datetime.fromtimestamp(
-            FOLDER + 2 + sequence * 10, tz=timezone.utc
+            FOLDER
+            + audio_offset
+            + sequence * 10
+            + program_date_time_offset,
+            tz=timezone.utc,
         )
         lines.extend(
             [
@@ -221,6 +231,67 @@ def test_hls_older_window_uses_archive_playlist(monkeypatch, tmp_path):
 
 
 @pytest.mark.tests
+@pytest.mark.parametrize(
+    "desired_end_offset,audio_offset,expected_start_offset,expected_end_offset",
+    [
+        (31, 2, None, 31),
+        (103, 2, 52.167, 112.167),
+        (103, 1, 51.167, 111.167),
+    ],
+)
+def test_hls_specific_clip_times(
+    monkeypatch,
+    tmp_path,
+    desired_end_offset,
+    audio_offset,
+    expected_start_offset,
+    expected_end_offset,
+):
+    playlist = m3u8.loads(
+        _playlist(
+            0,
+            30,
+            audio_offset=audio_offset,
+            program_date_time_offset=0.167,
+        ),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    _mock_media(monkeypatch, tmp_path, HLSStream, lambda url: playlist)
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.boto3.client",
+        lambda *args, **kwargs: type(
+            "S3", (), {"list_objects_v2": lambda *a, **k: {"KeyCount": 1}}
+        )(),
+    )
+    monkeypatch.setattr(
+        HLSStream, "get_latest_folder_time", lambda self: str(FOLDER)
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.time.sleep", lambda *args: None
+    )
+
+    stream = HLSStream(STREAM_BASE, 60, str(tmp_path), audio_offset)
+    request_end = datetime.fromtimestamp(
+        FOLDER + desired_end_offset, tz=timezone.utc
+    ).replace(tzinfo=None)
+    _, clip_start, clip_end = stream.get_next_clip(request_end)
+
+    expected_start = (
+        datetime.fromtimestamp(
+            FOLDER + expected_start_offset, tz=timezone.utc
+        ).replace(tzinfo=None).isoformat()
+        + "Z"
+        if expected_start_offset is not None
+        else None
+    )
+    expected_end = datetime.fromtimestamp(
+        FOLDER + expected_end_offset, tz=timezone.utc
+    ).replace(tzinfo=None)
+    assert clip_start == expected_start
+    assert clip_end == expected_end
+
+
+@pytest.mark.tests
 def test_sequence_extrapolation_keeps_minimum_padding_after_999():
     playlist = m3u8.loads(
         _playlist(1000, 2),
@@ -259,6 +330,59 @@ def test_timeline_preserves_absolute_segment_uris():
         "https://cdn.example/audio/live998.ts",
         "https://cdn.example/audio/live999.ts",
     ]
+
+
+@pytest.mark.tests
+def test_sequential_clips_do_not_overlap_when_program_dates_are_rounded(
+    monkeypatch, tmp_path
+):
+    lines = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:3",
+        "#EXT-X-TARGETDURATION:11",
+        "#EXT-X-MEDIA-SEQUENCE:0",
+    ]
+    for sequence in range(20):
+        start = datetime.fromtimestamp(
+            FOLDER + 2 + sequence * 10, tz=timezone.utc
+        )
+        lines.extend(
+            [
+                "#EXT-X-PROGRAM-DATE-TIME:"
+                + start.isoformat(timespec="milliseconds"),
+                "#EXTINF:10.000289,",
+                "live{:03d}.ts".format(sequence),
+            ]
+        )
+    playlist = m3u8.loads(
+        "\n".join(lines),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+
+    _mock_media(monkeypatch, tmp_path, HLSStream, lambda url: playlist)
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.boto3.client",
+        lambda *args, **kwargs: type(
+            "S3", (), {"list_objects_v2": lambda *a, **k: {"KeyCount": 1}}
+        )(),
+    )
+    monkeypatch.setattr(
+        HLSStream, "get_latest_folder_time", lambda self: str(FOLDER)
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.time.sleep", lambda *args: None
+    )
+
+    stream = HLSStream(STREAM_BASE, 60, str(tmp_path))
+    first_end = datetime.fromtimestamp(
+        FOLDER + 2 + 7 * 10, tz=timezone.utc
+    ).replace(tzinfo=None)
+    _, _, clip_end = stream.get_next_clip(first_end)
+    _, next_clip_start, _ = stream.get_next_clip(
+        clip_end + timedelta(seconds=60)
+    )
+
+    assert datetime.fromisoformat(next_clip_start.rstrip("Z")) >= clip_end
 
 
 @pytest.mark.tests

@@ -47,11 +47,13 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
         for index in range(first_date - 1, -1, -1):
             starts[index] = starts[index + 1] - durations[index]
         for index in range(first_date + 1, len(segments)):
-            starts[index] = (
+            previous_end = starts[index - 1] + durations[index - 1]
+            program_date_time = (
                 dates[index].timestamp()
                 if dates[index] is not None
-                else starts[index - 1] + durations[index - 1]
+                else previous_end
             )
+            starts[index] = max(program_date_time, previous_end)
     else:
         mean_duration = sum(durations) / len(durations)
         starts = []
