@@ -63,7 +63,11 @@ def _mock_media(monkeypatch, tmp_path, module, playlist_loader):
         "run",
         lambda path, **kwargs: Path(path).write_bytes(b"RIFF"),
     )
-    monkeypatch.setattr(module.m3u8, "load", playlist_loader)
+    monkeypatch.setattr(
+        importlib.import_module("orca_hls_utils.playlist_utils").m3u8,
+        "load",
+        playlist_loader,
+    )
 
 
 @pytest.mark.tests
@@ -229,7 +233,8 @@ def test_hls_older_window_uses_archive_playlist(monkeypatch, tmp_path):
 
 @pytest.mark.tests
 @pytest.mark.parametrize(
-    "desired_end_offset,audio_offset,expected_start_offset,expected_end_offset",
+    "desired_end_offset,audio_offset,expected_start_offset,"
+    "expected_end_offset",
     [
         (31, 2, None, 31),
         (103, 2, 52.167, 112.167),

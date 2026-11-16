@@ -9,7 +9,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import ffmpeg
-import m3u8
 
 # from botocore import UNSIGNED
 # from botocore.config import Config
