@@ -269,9 +269,8 @@ class HLSStream:
         file_names = []
         for i in range(segment_start_index, segment_end_index):
             audio_segment = stream_obj.segments[i]
-            base_path = audio_segment.base_uri
-            file_name = audio_segment.uri
-            audio_url = base_path + file_name
+            file_name = playlist_utils.segment_filename(audio_segment)
+            audio_url = playlist_utils.resolve_segment_url(audio_segment)
             try:
                 scraper.download_from_url(audio_url, tmp_path)
                 file_names.append(file_name)

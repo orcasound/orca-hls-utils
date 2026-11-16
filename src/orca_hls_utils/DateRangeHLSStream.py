@@ -228,12 +228,12 @@ class DateRangeHLSStream:
                     else item
                 )
                 file_name = (
-                    audio_segment.uri
+                    playlist_utils.segment_filename(audio_segment)
                     if selected_segments is None
                     else audio_segment.url.rsplit("/", 1)[-1]
                 )
                 audio_url = (
-                    audio_segment.base_uri + file_name
+                    playlist_utils.resolve_segment_url(audio_segment)
                     if selected_segments is None
                     else audio_segment.url
                 )

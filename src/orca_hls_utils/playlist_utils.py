@@ -24,6 +24,16 @@ def load_archive_or_live(stream_base, folder):
                 raise
 
 
+def resolve_segment_url(segment):
+    """Resolve a segment URI against its playlist base URI."""
+    return urljoin(segment.base_uri or "", segment.uri)
+
+
+def segment_filename(segment):
+    """Return the local filename for a segment URI."""
+    return urlsplit(resolve_segment_url(segment)).path.rsplit("/", 1)[-1]
+
+
 def get_playlist_timeline(playlist, folder_epoch, audio_offset):
     """Return playlist segments with sequence numbers and estimated starts."""
     segments = playlist.segments
@@ -74,7 +84,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
             sequence_start + index,
             starts[index],
             durations[index],
-            urljoin(segment.base_uri or "", segment.uri),
+            resolve_segment_url(segment),
         )
         for index, segment in enumerate(segments)
     ]

@@ -22,6 +22,7 @@ def _playlist(
     uri="live{:03d}.ts",
     audio_offset=2,
     program_date_time_offset=0,
+    program_date_time=True,
 ):
     lines = [
         "#EXTM3U",
@@ -30,18 +31,19 @@ def _playlist(
         "#EXT-X-MEDIA-SEQUENCE:{}".format(first),
     ]
     for sequence in range(first, first + count):
-        start = datetime.fromtimestamp(
-            FOLDER + audio_offset + sequence * 10 + program_date_time_offset,
-            tz=timezone.utc,
-        )
-        lines.extend(
-            [
+        if program_date_time:
+            start = datetime.fromtimestamp(
+                FOLDER
+                + audio_offset
+                + sequence * 10
+                + program_date_time_offset,
+                tz=timezone.utc,
+            )
+            lines.append(
                 "#EXT-X-PROGRAM-DATE-TIME:"
-                + start.isoformat(timespec="milliseconds"),
-                "#EXTINF:10.0,",
-                uri.format(sequence),
-            ]
-        )
+                + start.isoformat(timespec="milliseconds")
+            )
+        lines.extend(["#EXTINF:10.0,", uri.format(sequence)])
     return "\n".join(lines)
 
 
@@ -109,6 +111,115 @@ def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
 
 
 @pytest.mark.tests
+def test_daterange_nonzero_media_sequence_uses_timeline(
+    monkeypatch, tmp_path
+):
+    downloaded = []
+    playlist = m3u8.loads(
+        _playlist(20, 10, program_date_time=False),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+
+    def load(url):
+        if url.endswith("/archive.m3u8"):
+            raise ValueError("archive does not exist")
+        return playlist
+
+    _mock_media(monkeypatch, tmp_path, DateRangeHLSStream, load)
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils.get_all_folders",
+        lambda *args, **kwargs: [str(FOLDER)],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils."
+        "get_folders_between_timestamp",
+        lambda *args, **kwargs: [FOLDER],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.scraper.download_from_url",
+        lambda url, dest: (
+            downloaded.append(url),
+            Path(dest, url.rsplit("/", 1)[-1]).write_bytes(b"ts"),
+        ),
+    )
+
+    request_start = FOLDER + 2 + 20 * 10
+    stream = DateRangeHLSStream(
+        STREAM_BASE,
+        60,
+        request_start,
+        request_start + 60,
+        str(tmp_path),
+    )
+    wav_path, _, _ = stream.get_next_clip()
+
+    assert [url.rsplit("/", 1)[-1] for url in downloaded] == [
+        "live020.ts",
+        "live021.ts",
+        "live022.ts",
+        "live023.ts",
+        "live024.ts",
+        "live025.ts",
+    ]
+    assert Path(wav_path).exists()
+
+
+@pytest.mark.tests
+def test_daterange_legacy_path_resolves_absolute_segment_uris(
+    monkeypatch, tmp_path
+):
+    downloaded = []
+    playlist = m3u8.loads(
+        _playlist(
+            0,
+            20,
+            uri="https://cdn.example/audio/live{:03d}.ts",
+            program_date_time=False,
+        ),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+
+    def load(url):
+        if url.endswith("/archive.m3u8"):
+            raise ValueError("archive does not exist")
+        return playlist
+
+    _mock_media(monkeypatch, tmp_path, DateRangeHLSStream, load)
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils.get_all_folders",
+        lambda *args, **kwargs: [str(FOLDER)],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils."
+        "get_folders_between_timestamp",
+        lambda *args, **kwargs: [FOLDER],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.scraper.download_from_url",
+        lambda url, dest: (
+            downloaded.append(url),
+            Path(dest, url.rsplit("/", 1)[-1]).write_bytes(b"ts"),
+        ),
+    )
+
+    request_start = FOLDER + 2 + 5 * 10
+    stream = DateRangeHLSStream(
+        STREAM_BASE,
+        60,
+        request_start,
+        request_start + 60,
+        str(tmp_path),
+    )
+    wav_path, _, _ = stream.get_next_clip()
+
+    assert downloaded == [
+        "https://cdn.example/audio/live{:03d}.ts".format(sequence)
+        for sequence in range(5, 11)
+    ]
+    assert Path(wav_path).exists()
+
+
+@pytest.mark.tests
 def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
     monkeypatch, tmp_path
 ):
@@ -168,6 +279,51 @@ def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
     assert clip_end == datetime.fromtimestamp(
         FOLDER + 2 + 3879 * 10, tz=timezone.utc
     ).replace(tzinfo=None)
+    assert Path(wav_path).exists()
+
+
+@pytest.mark.tests
+def test_hls_legacy_path_resolves_absolute_segment_uris(monkeypatch, tmp_path):
+    downloaded = []
+    playlist = m3u8.loads(
+        _playlist(
+            0,
+            20,
+            uri="https://cdn.example/audio/live{:03d}.ts",
+            program_date_time=False,
+        ),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    _mock_media(monkeypatch, tmp_path, HLSStream, lambda url: playlist)
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.boto3.client",
+        lambda *args, **kwargs: type(
+            "S3", (), {"list_objects_v2": lambda *a, **k: {"KeyCount": 1}}
+        )(),
+    )
+    monkeypatch.setattr(
+        HLSStream, "get_latest_folder_time", lambda self: str(FOLDER)
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.time.sleep", lambda *args: None
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.scraper.download_from_url",
+        lambda url, dest: (
+            downloaded.append(url),
+            Path(dest, url.rsplit("/", 1)[-1]).write_bytes(b"ts"),
+        ),
+    )
+    request_end = datetime.fromtimestamp(
+        FOLDER + 2 + 80, tz=timezone.utc
+    ).replace(tzinfo=None)
+    stream = HLSStream(STREAM_BASE, 60, str(tmp_path))
+    wav_path, _, _ = stream.get_next_clip(request_end)
+
+    assert downloaded == [
+        "https://cdn.example/audio/live{:03d}.ts".format(sequence)
+        for sequence in range(2, 8)
+    ]
     assert Path(wav_path).exists()
 
 
@@ -311,6 +467,27 @@ def test_sequence_extrapolation_keeps_minimum_padding_after_999():
         "live998.ts",
         "live999.ts",
     ]
+
+
+@pytest.mark.tests
+def test_segment_selectors_reject_times_before_rolling_window():
+    playlist = m3u8.loads(
+        _playlist(100, 4),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    timeline = playlist_utils.get_playlist_timeline(
+        playlist, FOLDER, audio_offset=2
+    )
+    stale_time = timeline[0].start - 1
+
+    assert (
+        playlist_utils.select_segments_from_start(timeline, stale_time, 20)
+        == []
+    )
+    assert (
+        playlist_utils.select_segments_ending_at(timeline, stale_time, 20)
+        == []
+    )
 
 
 @pytest.mark.tests
