@@ -111,9 +111,7 @@ def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
 
 
 @pytest.mark.tests
-def test_daterange_nonzero_media_sequence_uses_timeline(
-    monkeypatch, tmp_path
-):
+def test_daterange_nonzero_media_sequence_uses_timeline(monkeypatch, tmp_path):
     downloaded = []
     playlist = m3u8.loads(
         _playlist(20, 10, program_date_time=False),
