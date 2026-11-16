@@ -156,9 +156,8 @@ class DateRangeHLSStream:
 
         selected_segments = None
         if (
-            (getattr(stream_obj, "media_sequence", 0) or 0) > 0
-            or playlist_utils.has_program_date_time(stream_obj)
-        ):
+            getattr(stream_obj, "media_sequence", 0) or 0
+        ) > 0 or playlist_utils.has_program_date_time(stream_obj):
             timeline = playlist_utils.get_playlist_timeline(
                 stream_obj, current_folder, self.audio_offset
             )
