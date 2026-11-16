@@ -154,6 +154,8 @@ class DateRangeHLSStream:
         )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
+        # Prefer timeline-based segment selection when sequence numbers or
+        # program date-time metadata are available in the playlist.
         selected_segments = None
         if (
             getattr(stream_obj, "media_sequence", 0) or 0
@@ -167,6 +169,8 @@ class DateRangeHLSStream:
                 self.polling_interval_in_seconds,
             )
 
+        # If we cannot build a complete clip from this folder, advance to the
+        # next folder and try again.
         if (
             selected_segments is None
             and segment_end_index > num_total_segments

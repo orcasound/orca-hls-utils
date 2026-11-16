@@ -104,16 +104,21 @@ class HLSStream:
             playlist_utils.has_program_date_time(stream_obj)
         )
 
+        # Prefer timeline-based clipping when sequence/PDT metadata exists,
+        # so clip boundaries follow real segment timing instead of averages.
         if use_timeline:
             timeline = playlist_utils.get_playlist_timeline(
                 stream_obj, int(stream_id), self.audio_offset
             )
+            # Convert the requested clip window to Unix seconds for timeline matching.
             request_end = playlist_utils.unix_time_from_utc_datetime(
                 current_clip_end_time
             )
             request_start = request_end - self.polling_interval
             earliest_live = timeline[0]
 
+            # If the requested start is older than current live coverage, try
+            # extending coverage with archive playlist data.
             if request_start < earliest_live.start:
                 try:
                     archive = m3u8.load(
@@ -129,10 +134,13 @@ class HLSStream:
                     archive_timeline = playlist_utils.get_playlist_timeline(
                         archive, int(stream_id), self.audio_offset
                     )
+                    # Merge archive and live entries by sequence number.
                     timeline = playlist_utils.merge_timelines(
                         archive_timeline, timeline
                     )
 
+                # Fill small gaps between archive and live timelines when they
+                # are adjacent but not directly contiguous.
                 if archive_timeline and (
                     archive_timeline[-1].sequence < earliest_live.sequence - 1
                 ):
@@ -145,6 +153,8 @@ class HLSStream:
                             archive_timeline[-1].sequence,
                         ),
                     )
+                # If no archive exists and request is only slightly before the
+                # first live segment, estimate prior segments heuristically.
                 elif not archive_timeline and (
                     request_start < earliest_live.start
                     and earliest_live.start - request_start <= 180
@@ -156,12 +166,15 @@ class HLSStream:
                         timeline,
                     )
 
+            # Choose a contiguous segment set that ends at/after request_end and
+            # covers at least one polling interval.
             selected_segments = playlist_utils.select_segments_ending_at(
                 timeline, request_end, self.polling_interval
             )
             if not selected_segments:
                 return None, None, current_clip_end_time
 
+            # Use actual segment times for output metadata and scheduler state.
             actual_start = selected_segments[0].start
             actual_end = (
                 selected_segments[-1].start + selected_segments[-1].duration
@@ -169,6 +182,7 @@ class HLSStream:
             current_clip_end_time = datetime.utcfromtimestamp(actual_end)
             current_clip_start_time = datetime.utcfromtimestamp(actual_start)
 
+            # Download selected transport stream segments to local temp storage.
             tmp_path = "tmp_path"
             os.makedirs(tmp_path, exist_ok=True)
             file_names = []
@@ -189,12 +203,14 @@ class HLSStream:
             wav_file_path = os.path.join(self.wav_dir, audio_file)
             hls_file_path = os.path.join(tmp_path, hls_file)
 
+            # Concatenate segment bytes into a single .ts file before ffmpeg conversion.
             with open(hls_file_path, "wb") as outfile:
                 for fname in file_names:
                     with open(os.path.join(tmp_path, fname), "rb") as infile:
                         outfile.write(infile.read())
 
             try:
+                # Transcode merged transport stream into the destination WAV clip.
                 stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
                 stream = ffmpeg.output(stream, wav_file_path)
                 ffmpeg.run(stream, quiet=True)
@@ -204,6 +220,7 @@ class HLSStream:
                 print("stderr:", e.stderr.decode("utf8", errors="ignore"))
                 raise
 
+            # Cleanup temporary segment artifacts once conversion finishes.
             shutil.rmtree(tmp_path, ignore_errors=True)
             return wav_file_path, clip_start_time, current_clip_end_time
 

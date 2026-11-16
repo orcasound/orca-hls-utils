@@ -91,6 +91,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
 
 
 def has_program_date_time(playlist):
+    """Return True when any segment includes a program date-time value."""
     return any(
         getattr(segment, "current_program_date_time", None)
         or getattr(segment, "program_date_time", None)
@@ -209,4 +210,5 @@ def select_segments_ending_at(timeline, end_time, duration):
 
 
 def unix_time_from_utc_datetime(value):
+    """Convert a UTC datetime value to a Unix timestamp."""
     return value.replace(tzinfo=timezone.utc).timestamp()

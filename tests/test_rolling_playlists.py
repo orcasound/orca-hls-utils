@@ -24,6 +24,7 @@ def _playlist(
     program_date_time_offset=0,
     program_date_time=True,
 ):
+    """Build an in-memory HLS playlist string for test scenarios."""
     lines = [
         "#EXTM3U",
         "#EXT-X-VERSION:3",
@@ -48,6 +49,7 @@ def _playlist(
 
 
 def _mock_media(monkeypatch, tmp_path, module, playlist_loader):
+    """Mock downloader, ffmpeg, and playlist loader dependencies."""
     module = importlib.import_module(module.__module__)
     monkeypatch.setattr(
         module.scraper,
@@ -74,6 +76,7 @@ def _mock_media(monkeypatch, tmp_path, module, playlist_loader):
 
 @pytest.mark.tests
 def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
+    """DateRange stream uses archive data and aligns clips using PDT."""
     loaded_urls = []
 
     def load(url):
@@ -112,6 +115,7 @@ def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
 
 @pytest.mark.tests
 def test_daterange_nonzero_media_sequence_uses_timeline(monkeypatch, tmp_path):
+    """DateRange stream uses timeline selection when media sequence is nonzero."""
     downloaded = []
     playlist = m3u8.loads(
         _playlist(20, 10, program_date_time=False),
@@ -166,6 +170,7 @@ def test_daterange_nonzero_media_sequence_uses_timeline(monkeypatch, tmp_path):
 def test_daterange_legacy_path_resolves_absolute_segment_uris(
     monkeypatch, tmp_path
 ):
+    """DateRange legacy path preserves absolute segment URLs."""
     downloaded = []
     playlist = m3u8.loads(
         _playlist(
@@ -221,6 +226,7 @@ def test_daterange_legacy_path_resolves_absolute_segment_uris(
 def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
     monkeypatch, tmp_path
 ):
+    """Rolling HLS backfills by sequence when request starts before live window."""
     live = m3u8.loads(
         _playlist(3876, 10),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
@@ -282,6 +288,7 @@ def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
 
 @pytest.mark.tests
 def test_hls_legacy_path_resolves_absolute_segment_uris(monkeypatch, tmp_path):
+    """HLS legacy path preserves absolute segment URLs."""
     downloaded = []
     playlist = m3u8.loads(
         _playlist(
@@ -327,6 +334,7 @@ def test_hls_legacy_path_resolves_absolute_segment_uris(monkeypatch, tmp_path):
 
 @pytest.mark.tests
 def test_hls_older_window_uses_archive_playlist(monkeypatch, tmp_path):
+    """HLS loads archive playlist when the requested clip predates live coverage."""
     loaded_urls = []
     downloaded = []
     live = m3u8.loads(
@@ -403,6 +411,7 @@ def test_hls_specific_clip_times(
     expected_start_offset,
     expected_end_offset,
 ):
+    """HLS clip boundaries match expected timestamps across offset cases."""
     playlist = m3u8.loads(
         _playlist(
             0,
@@ -449,6 +458,7 @@ def test_hls_specific_clip_times(
 
 @pytest.mark.tests
 def test_sequence_extrapolation_keeps_minimum_padding_after_999():
+    """Extrapolated sequence names keep minimum zero-padding after 999."""
     playlist = m3u8.loads(
         _playlist(1000, 2),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
@@ -469,6 +479,7 @@ def test_sequence_extrapolation_keeps_minimum_padding_after_999():
 
 @pytest.mark.tests
 def test_segment_selectors_reject_times_before_rolling_window():
+    """Segment selectors return no clip before the rolling window starts."""
     playlist = m3u8.loads(
         _playlist(100, 4),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
@@ -490,6 +501,7 @@ def test_segment_selectors_reject_times_before_rolling_window():
 
 @pytest.mark.tests
 def test_timeline_preserves_absolute_segment_uris():
+    """Timeline and extrapolation preserve absolute segment URIs."""
     playlist = m3u8.loads(
         _playlist(1000, 2, uri="https://cdn.example/audio/live{}.ts"),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
@@ -513,6 +525,7 @@ def test_timeline_preserves_absolute_segment_uris():
 def test_sequential_clips_do_not_overlap_when_program_dates_are_rounded(
     monkeypatch, tmp_path
 ):
+    """Sequential clips do not overlap when PDT values are rounded."""
     lines = [
         "#EXTM3U",
         "#EXT-X-VERSION:3",
@@ -564,6 +577,7 @@ def test_sequential_clips_do_not_overlap_when_program_dates_are_rounded(
 
 @pytest.mark.tests
 def test_archive_loader_falls_back_to_live(monkeypatch):
+    """Archive loader falls back to live playlist when archive load fails."""
     requested = []
 
     def load(url):
