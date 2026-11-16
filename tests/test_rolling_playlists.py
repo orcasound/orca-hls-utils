@@ -249,6 +249,98 @@ def test_daterange_bridges_archive_lag_only_for_existing_segments(
 
 
 @pytest.mark.tests
+def test_daterange_limits_start_extrapolation_for_rolling_playlist(
+    monkeypatch, tmp_path
+):
+    """A historical request does not probe every sequence before live data."""
+    playlist = m3u8.loads(
+        _playlist(100, 10),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    checked = []
+    _mock_media(
+        monkeypatch, tmp_path, DateRangeHLSStream, lambda url: playlist
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils.get_all_folders",
+        lambda *args, **kwargs: [str(FOLDER)],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils."
+        "get_folders_between_timestamp",
+        lambda *args, **kwargs: [FOLDER],
+    )
+    monkeypatch.setattr(
+        playlist_utils, "url_exists", lambda url: checked.append(url) or True
+    )
+
+    start = FOLDER + 2
+    stream = DateRangeHLSStream(
+        STREAM_BASE, 60, start, start + 60, str(tmp_path)
+    )
+
+    assert stream.get_next_clip() == (None, None, None)
+    assert checked == []
+
+
+@pytest.mark.tests
+def test_daterange_advances_past_later_run_after_sequence_gap(
+    monkeypatch, tmp_path
+):
+    """A later contiguous run is not selected again after an unresolved gap."""
+    archive = m3u8.loads(
+        _playlist(0, 3),
+        uri="{}/hls/{}/archive.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    live = m3u8.loads(
+        _playlist(9, 6),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    downloaded = []
+
+    def load(url):
+        return archive if url.endswith("/archive.m3u8") else live
+
+    _mock_media(monkeypatch, tmp_path, DateRangeHLSStream, load)
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils.get_all_folders",
+        lambda *args, **kwargs: [str(FOLDER)],
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.s3_utils."
+        "get_folders_between_timestamp",
+        lambda *args, **kwargs: [FOLDER],
+    )
+    monkeypatch.setattr(playlist_utils, "url_exists", lambda url: False)
+    monkeypatch.setattr(
+        "orca_hls_utils.DateRangeHLSStream.scraper.download_from_url",
+        lambda url, dest: (
+            downloaded.append(url),
+            Path(dest, url.rsplit("/", 1)[-1]).write_bytes(b"ts"),
+        ),
+    )
+    start = FOLDER + 32
+    stream = DateRangeHLSStream(
+        STREAM_BASE, 60, start, start + 120, str(tmp_path)
+    )
+
+    wav_path, _, _ = stream.get_next_clip()
+
+    assert [url.rsplit("/", 1)[-1] for url in downloaded] == [
+        "live009.ts",
+        "live010.ts",
+        "live011.ts",
+        "live012.ts",
+        "live013.ts",
+        "live014.ts",
+    ]
+    assert stream.current_clip_start_time == FOLDER + 152
+    assert stream.get_next_clip() == (None, None, None)
+    assert len(downloaded) == 6
+    assert Path(wav_path).exists()
+
+
+@pytest.mark.tests
 def test_daterange_download_failure_keeps_clip_pending(monkeypatch, tmp_path):
     """A failed segment download leaves the requested clip pending."""
     playlist = m3u8.loads(

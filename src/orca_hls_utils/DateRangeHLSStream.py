@@ -220,6 +220,9 @@ class DateRangeHLSStream:
                 float(self.current_clip_start_time)
                 + self.polling_interval_in_seconds,
                 playlist_utils.url_exists,
+                extrapolate_start=(
+                    timeline[0].start - self.current_clip_start_time <= 180
+                ),
             )
             selected_segments = playlist_utils.select_segments_from_start(
                 timeline,
@@ -313,14 +316,24 @@ class DateRangeHLSStream:
 
         # Advance only after every selected segment has been converted; failed
         # downloads must not yield a shorter clip or consume requested time.
-        self.current_clip_start_time = (
-            datetime_utils.add_interval_to_unix_time(
-                self.current_clip_start_time, self.polling_interval_in_seconds
-            )
-        )
         if selected_segments is not None:
+            selected_end = (
+                selected_segments[-1].start + selected_segments[-1].duration
+            )
+            self.current_clip_start_time = max(
+                self.current_clip_start_time
+                + self.polling_interval_in_seconds,
+                selected_end,
+            )
             self.last_clip_approximate = any(
                 item.approximate for item in selected_segments
+            )
+        else:
+            self.current_clip_start_time = (
+                datetime_utils.add_interval_to_unix_time(
+                    self.current_clip_start_time,
+                    self.polling_interval_in_seconds,
+                )
             )
 
         # If we're in demo mode, we need to fake timestamps to make it seem
