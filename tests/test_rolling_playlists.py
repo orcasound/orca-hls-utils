@@ -287,6 +287,61 @@ def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
 
 
 @pytest.mark.tests
+def test_hls_rolling_playlist_cleans_temp_files_when_ffmpeg_fails(
+    monkeypatch, tmp_path
+):
+    """Rolling playlist temp files are removed when transcoding fails."""
+    live = m3u8.loads(
+        _playlist(3876, 10),
+        uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
+    )
+    download_dirs = []
+
+    def load(url):
+        if url.endswith("/live.m3u8"):
+            return live
+        raise ValueError("archive does not exist")
+
+    _mock_media(monkeypatch, tmp_path, HLSStream, load)
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.boto3.client",
+        lambda *args, **kwargs: type(
+            "S3", (), {"list_objects_v2": lambda *a, **k: {"KeyCount": 1}}
+        )(),
+    )
+    monkeypatch.setattr(
+        HLSStream, "get_latest_folder_time", lambda self: str(FOLDER)
+    )
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.time.sleep", lambda *args: None
+    )
+
+    def download(url, dest):
+        download_dirs.append(dest)
+        Path(dest, url.rsplit("/", 1)[-1]).write_bytes(b"ts")
+
+    def fail_ffmpeg(*args, **kwargs):
+        raise RuntimeError("transcode failed")
+
+    monkeypatch.setattr(
+        "orca_hls_utils.HLSStream.scraper.download_from_url", download
+    )
+    monkeypatch.setattr("orca_hls_utils.HLSStream.ffmpeg.run", fail_ffmpeg)
+
+    request_end = datetime.fromtimestamp(
+        FOLDER + 2 + (3878 + 1) * 10 - 1, tz=timezone.utc
+    ).replace(tzinfo=None)
+    stream = HLSStream(STREAM_BASE, 60, str(tmp_path))
+
+    with pytest.raises(RuntimeError, match="transcode failed"):
+        stream.get_next_clip(request_end)
+
+    assert download_dirs
+    assert len(set(download_dirs)) == 1
+    assert not Path(download_dirs[0]).exists()
+
+
+@pytest.mark.tests
 def test_hls_legacy_path_resolves_absolute_segment_uris(monkeypatch, tmp_path):
     """HLS legacy path preserves absolute segment URLs."""
     downloaded = []

@@ -2,6 +2,7 @@
 import math
 import os
 import shutil
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -182,46 +183,46 @@ class HLSStream:
             current_clip_end_time = datetime.utcfromtimestamp(actual_end)
             current_clip_start_time = datetime.utcfromtimestamp(actual_start)
 
-            # Download selected transport stream segments to local temp storage.
-            tmp_path = "tmp_path"
-            os.makedirs(tmp_path, exist_ok=True)
-            file_names = []
-            for item in selected_segments:
-                file_name = item.url.rsplit("/", 1)[-1]
+            # Download and process selected segments in isolated temp storage.
+            with tempfile.TemporaryDirectory() as tmp_path:
+                file_names = []
+                for item in selected_segments:
+                    file_name = item.url.rsplit("/", 1)[-1]
+                    try:
+                        scraper.download_from_url(item.url, tmp_path)
+                        file_names.append(file_name)
+                    except Exception:
+                        print("Skipping", item.url, ": error.")
+
+                clip_start_time = current_clip_start_time.isoformat() + "Z"
+                clipname, _ = get_readable_clipname(
+                    self.hydrophone_id, current_clip_start_time
+                )
+                hls_file = clipname + ".ts"
+                audio_file = clipname + ".wav"
+                wav_file_path = os.path.join(self.wav_dir, audio_file)
+                hls_file_path = os.path.join(tmp_path, hls_file)
+
+                # Concatenate segments before converting to the destination WAV.
+                with open(hls_file_path, "wb") as outfile:
+                    for fname in file_names:
+                        with open(
+                            os.path.join(tmp_path, fname), "rb"
+                        ) as infile:
+                            outfile.write(infile.read())
+
                 try:
-                    scraper.download_from_url(item.url, tmp_path)
-                    file_names.append(file_name)
-                except Exception:
-                    print("Skipping", item.url, ": error.")
+                    stream = ffmpeg.input(
+                        os.path.join(tmp_path, Path(hls_file))
+                    )
+                    stream = ffmpeg.output(stream, wav_file_path)
+                    ffmpeg.run(stream, quiet=True)
+                except ffmpeg.Error as e:
+                    print("FFmpeg command failed.")
+                    print("stdout:", e.stdout.decode("utf8", errors="ignore"))
+                    print("stderr:", e.stderr.decode("utf8", errors="ignore"))
+                    raise
 
-            clip_start_time = current_clip_start_time.isoformat() + "Z"
-            clipname, _ = get_readable_clipname(
-                self.hydrophone_id, current_clip_start_time
-            )
-            hls_file = clipname + ".ts"
-            audio_file = clipname + ".wav"
-            wav_file_path = os.path.join(self.wav_dir, audio_file)
-            hls_file_path = os.path.join(tmp_path, hls_file)
-
-            # Concatenate segment bytes into a single .ts file before ffmpeg conversion.
-            with open(hls_file_path, "wb") as outfile:
-                for fname in file_names:
-                    with open(os.path.join(tmp_path, fname), "rb") as infile:
-                        outfile.write(infile.read())
-
-            try:
-                # Transcode merged transport stream into the destination WAV clip.
-                stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
-                stream = ffmpeg.output(stream, wav_file_path)
-                ffmpeg.run(stream, quiet=True)
-            except ffmpeg.Error as e:
-                print("FFmpeg command failed.")
-                print("stdout:", e.stdout.decode("utf8", errors="ignore"))
-                print("stderr:", e.stderr.decode("utf8", errors="ignore"))
-                raise
-
-            # Cleanup temporary segment artifacts once conversion finishes.
-            shutil.rmtree(tmp_path, ignore_errors=True)
             return wav_file_path, clip_start_time, current_clip_end_time
 
         target_duration = round(
