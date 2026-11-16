@@ -243,9 +243,7 @@ def test_sequence_extrapolation_keeps_minimum_padding_after_999():
 @pytest.mark.tests
 def test_timeline_preserves_absolute_segment_uris():
     playlist = m3u8.loads(
-        _playlist(
-            1000, 2, uri="https://cdn.example/audio/live{}.ts"
-        ),
+        _playlist(1000, 2, uri="https://cdn.example/audio/live{}.ts"),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
     )
 
