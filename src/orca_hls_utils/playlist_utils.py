@@ -2,7 +2,7 @@ import math
 import re
 from collections import namedtuple
 from datetime import timezone
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import m3u8
 
@@ -96,13 +96,22 @@ def extrapolate_before(timeline, start_time, min_sequence=-1):
     if delta <= 0:
         return []
     mean_duration = sum(item.duration for item in timeline) / len(timeline)
-    segment_name = first.segment.uri
+    parsed_url = urlsplit(first.url)
+    segment_name = parsed_url.path.rsplit("/", 1)[-1]
     match = re.match(r"^(.*?)(\d+)(\.ts)$", segment_name)
     if not match or mean_duration <= 0:
         return []
 
     width = len(match.group(2)) if match.group(2).startswith("0") else 3
-    base_uri = first.segment.base_uri
+    base_uri = urlunsplit(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path.rsplit("/", 1)[0] + "/",
+            "",
+            "",
+        )
+    )
     count = min(first.sequence, math.ceil(delta / mean_duration - 1e-9))
     earlier = []
     for distance in range(count, 0, -1):

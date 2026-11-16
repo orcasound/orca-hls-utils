@@ -243,15 +243,24 @@ def test_sequence_extrapolation_keeps_minimum_padding_after_999():
 @pytest.mark.tests
 def test_timeline_preserves_absolute_segment_uris():
     playlist = m3u8.loads(
-        "#EXTM3U\n#EXTINF:10,\nhttps://cdn.example/audio.ts\n",
+        _playlist(
+            1000, 2, uri="https://cdn.example/audio/live{}.ts"
+        ),
         uri="{}/hls/{}/live.m3u8".format(STREAM_BASE, FOLDER),
     )
 
     timeline = playlist_utils.get_playlist_timeline(
         playlist, FOLDER, audio_offset=2
     )
+    earlier = playlist_utils.extrapolate_before(
+        timeline, timeline[0].start - 20
+    )
 
-    assert timeline[0].url == "https://cdn.example/audio.ts"
+    assert timeline[0].url == "https://cdn.example/audio/live1000.ts"
+    assert [item.url for item in earlier] == [
+        "https://cdn.example/audio/live998.ts",
+        "https://cdn.example/audio/live999.ts",
+    ]
 
 
 @pytest.mark.tests
