@@ -5,10 +5,9 @@ from pathlib import Path
 import m3u8
 import pytest
 
+from orca_hls_utils import playlist_utils
 from orca_hls_utils.DateRangeHLSStream import DateRangeHLSStream
 from orca_hls_utils.HLSStream import HLSStream
-from orca_hls_utils import playlist_utils
-
 
 FOLDER = 1700000000
 STREAM_BASE = (
@@ -44,9 +43,9 @@ def _mock_media(monkeypatch, tmp_path, module, playlist_loader):
     monkeypatch.setattr(
         module.scraper,
         "download_from_url",
-        lambda url, dest: Path(
-            dest, url.rsplit("/", 1)[-1]
-        ).write_bytes(b"ts"),
+        lambda url, dest: Path(dest, url.rsplit("/", 1)[-1]).write_bytes(
+            b"ts"
+        ),
     )
     monkeypatch.setattr(module.ffmpeg, "input", lambda *args, **kwargs: "in")
     monkeypatch.setattr(
@@ -61,9 +60,7 @@ def _mock_media(monkeypatch, tmp_path, module, playlist_loader):
 
 
 @pytest.mark.tests
-def test_daterange_uses_archive_and_program_date_time(
-    monkeypatch, tmp_path
-):
+def test_daterange_uses_archive_and_program_date_time(monkeypatch, tmp_path):
     loaded_urls = []
 
     def load(url):
@@ -150,9 +147,13 @@ def test_hls_rolling_playlist_uses_sequence_urls_before_live_window(
         "live3877.ts",
         "live3878.ts",
     ]
-    assert clip_start == datetime.fromtimestamp(
-        FOLDER + 2 + 3873 * 10, tz=timezone.utc
-    ).replace(tzinfo=None).isoformat() + "Z"
+    assert (
+        clip_start
+        == datetime.fromtimestamp(FOLDER + 2 + 3873 * 10, tz=timezone.utc)
+        .replace(tzinfo=None)
+        .isoformat()
+        + "Z"
+    )
     assert clip_end == datetime.fromtimestamp(
         FOLDER + 2 + 3879 * 10, tz=timezone.utc
     ).replace(tzinfo=None)

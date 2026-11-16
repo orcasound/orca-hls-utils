@@ -6,7 +6,6 @@ from urllib.parse import urljoin
 
 import m3u8
 
-
 PlaylistSegment = namedtuple(
     "PlaylistSegment", ["segment", "sequence", "start", "duration", "url"]
 )

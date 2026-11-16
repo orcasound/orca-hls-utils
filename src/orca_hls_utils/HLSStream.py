@@ -134,8 +134,7 @@ class HLSStream:
                     )
 
                 if archive_timeline and (
-                    archive_timeline[-1].sequence
-                    < earliest_live.sequence - 1
+                    archive_timeline[-1].sequence < earliest_live.sequence - 1
                 ):
                     timeline = playlist_utils.merge_timelines(
                         timeline,
@@ -165,8 +164,7 @@ class HLSStream:
 
             actual_start = selected_segments[0].start
             actual_end = (
-                selected_segments[-1].start
-                + selected_segments[-1].duration
+                selected_segments[-1].start + selected_segments[-1].duration
             )
             current_clip_end_time = datetime.utcfromtimestamp(actual_end)
             current_clip_start_time = datetime.utcfromtimestamp(actual_start)
