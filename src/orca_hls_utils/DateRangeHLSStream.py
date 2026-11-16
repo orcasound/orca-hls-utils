@@ -15,7 +15,7 @@ import m3u8
 # from botocore.config import Config
 from pytz import timezone
 
-from . import datetime_utils, s3_utils, scraper
+from . import datetime_utils, playlist_utils, s3_utils, scraper
 
 
 def get_readable_clipname(hydrophone_id, cliptime_utc):
@@ -123,12 +123,10 @@ class DateRangeHLSStream:
             if time_to_sleep > 0:
                 time.sleep(time_to_sleep)
 
-        # read in current m3u8 file
-        # stream_url for the current AWS folder
-        stream_url = "{}/hls/{}/live.m3u8".format(
-            (self.stream_base), (current_folder)
+        # Prefer the full archive for historical reads, with live fallback.
+        stream_obj = playlist_utils.load_archive_or_live(
+            self.stream_base, current_folder
         )
-        stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
         target_duration = round(
             sum([item.duration for item in stream_obj.segments])
@@ -157,7 +155,21 @@ class DateRangeHLSStream:
         )
         segment_end_index = segment_start_index + num_segments_in_wav_duration
 
-        if segment_end_index > num_total_segments:
+        selected_segments = None
+        if playlist_utils.has_program_date_time(stream_obj):
+            timeline = playlist_utils.get_playlist_timeline(
+                stream_obj, current_folder, self.audio_offset
+            )
+            selected_segments = playlist_utils.select_segments_from_start(
+                timeline,
+                float(self.current_clip_start_time),
+                self.polling_interval_in_seconds,
+            )
+
+        if (
+            selected_segments is None
+            and segment_end_index > num_total_segments
+        ) or (selected_segments is not None and not selected_segments):
             # move to the next folder and increment the
             # current_clip_start_time to the new
             self.current_folder_index += 1
@@ -172,12 +184,19 @@ class DateRangeHLSStream:
         # Compute the actual clip start from playlist segment indices,
         # matching HLSStream.py.  Returning the requested time
         # can be up to one polling interval (60s) off.
-        end_seconds = (
-            segment_end_index * target_duration
-            + int(current_folder)
-            + self.audio_offset
-        )
-        actual_start_seconds = end_seconds - self.polling_interval_in_seconds
+        if selected_segments is None:
+            end_seconds = (
+                segment_end_index * target_duration
+                + int(current_folder)
+                + self.audio_offset
+            )
+            actual_start_seconds = (
+                end_seconds - self.polling_interval_in_seconds
+            )
+            segment_indices = range(segment_start_index, segment_end_index)
+        else:
+            actual_start_seconds = selected_segments[0].start
+            segment_indices = selected_segments
         (
             clipname,
             clip_start_time,
@@ -201,11 +220,22 @@ class DateRangeHLSStream:
             os.makedirs(tmp_path, exist_ok=True)
 
             file_names = []
-            for i in range(segment_start_index, segment_end_index):
-                audio_segment = stream_obj.segments[i]
-                base_path = audio_segment.base_uri
-                file_name = audio_segment.uri
-                audio_url = base_path + file_name
+            for item in segment_indices:
+                audio_segment = (
+                    stream_obj.segments[item]
+                    if selected_segments is None
+                    else item
+                )
+                file_name = (
+                    audio_segment.uri
+                    if selected_segments is None
+                    else audio_segment.url.rsplit("/", 1)[-1]
+                )
+                audio_url = (
+                    audio_segment.base_uri + file_name
+                    if selected_segments is None
+                    else audio_segment.url
+                )
                 try:
                     scraper.download_from_url(audio_url, tmp_path)
                     file_names.append(file_name)

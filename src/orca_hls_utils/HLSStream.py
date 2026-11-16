@@ -15,7 +15,7 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from pytz import timezone
 
-from . import datetime_utils, scraper
+from . import datetime_utils, playlist_utils, scraper
 
 
 def get_readable_clipname(hydrophone_id, cliptime_utc):
@@ -99,6 +99,116 @@ class HLSStream:
         # .m3u8 file exists so load it
         stream_obj = m3u8.load(stream_url)
         num_total_segments = len(stream_obj.segments)
+        sequence_start = getattr(stream_obj, "media_sequence", 0) or 0
+        use_timeline = sequence_start > 0 or (
+            playlist_utils.has_program_date_time(stream_obj)
+        )
+
+        if use_timeline:
+            timeline = playlist_utils.get_playlist_timeline(
+                stream_obj, int(stream_id), self.audio_offset
+            )
+            request_end = playlist_utils.unix_time_from_utc_datetime(
+                current_clip_end_time
+            )
+            request_start = request_end - self.polling_interval
+            earliest_live = timeline[0]
+
+            if request_start < earliest_live.start:
+                try:
+                    archive = m3u8.load(
+                        "{}/hls/{}/archive.m3u8".format(
+                            self.stream_base, stream_id
+                        )
+                    )
+                except Exception:
+                    archive = None
+
+                archive_timeline = []
+                if archive is not None and archive.segments:
+                    archive_timeline = playlist_utils.get_playlist_timeline(
+                        archive, int(stream_id), self.audio_offset
+                    )
+                    timeline = playlist_utils.merge_timelines(
+                        archive_timeline, timeline
+                    )
+
+                if archive_timeline and (
+                    archive_timeline[-1].sequence
+                    < earliest_live.sequence - 1
+                ):
+                    timeline = playlist_utils.merge_timelines(
+                        timeline,
+                        playlist_utils.extrapolate_before(
+                            [earliest_live],
+                            archive_timeline[-1].start
+                            + archive_timeline[-1].duration,
+                            archive_timeline[-1].sequence,
+                        ),
+                    )
+                elif not archive_timeline and (
+                    request_start < earliest_live.start
+                    and earliest_live.start - request_start <= 180
+                ):
+                    timeline = playlist_utils.merge_timelines(
+                        playlist_utils.extrapolate_before(
+                            timeline, request_start
+                        ),
+                        timeline,
+                    )
+
+            selected_segments = playlist_utils.select_segments_ending_at(
+                timeline, request_end, self.polling_interval
+            )
+            if not selected_segments:
+                return None, None, current_clip_end_time
+
+            actual_start = selected_segments[0].start
+            actual_end = (
+                selected_segments[-1].start
+                + selected_segments[-1].duration
+            )
+            current_clip_end_time = datetime.utcfromtimestamp(actual_end)
+            current_clip_start_time = datetime.utcfromtimestamp(actual_start)
+
+            tmp_path = "tmp_path"
+            os.makedirs(tmp_path, exist_ok=True)
+            file_names = []
+            for item in selected_segments:
+                file_name = item.url.rsplit("/", 1)[-1]
+                try:
+                    scraper.download_from_url(item.url, tmp_path)
+                    file_names.append(file_name)
+                except Exception:
+                    print("Skipping", item.url, ": error.")
+
+            clip_start_time = current_clip_start_time.isoformat() + "Z"
+            clipname, _ = get_readable_clipname(
+                self.hydrophone_id, current_clip_start_time
+            )
+            hls_file = clipname + ".ts"
+            audio_file = clipname + ".wav"
+            wav_file_path = os.path.join(self.wav_dir, audio_file)
+            hls_file_path = os.path.join(tmp_path, hls_file)
+
+            with open(hls_file_path, "wb") as outfile:
+                for fname in file_names:
+                    with open(os.path.join(tmp_path, fname), "rb") as infile:
+                        outfile.write(infile.read())
+
+            try:
+                stream = ffmpeg.input(os.path.join(tmp_path, Path(hls_file)))
+                stream = ffmpeg.output(stream, wav_file_path)
+                ffmpeg.run(stream, quiet=True)
+            except ffmpeg.Error as e:
+                print("FFmpeg command failed.")
+                print("stdout:", e.stdout.decode("utf8", errors="ignore"))
+                print("stderr:", e.stderr.decode("utf8", errors="ignore"))
+                raise
+
+            shutil.rmtree(tmp_path, ignore_errors=True)
+            return wav_file_path, clip_start_time, current_clip_end_time
+
         target_duration = round(
             sum([item.duration for item in stream_obj.segments])
             / num_total_segments,
