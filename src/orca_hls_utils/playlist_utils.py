@@ -71,6 +71,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
     if not segments:
         return []
 
+    # Build per-segment timing inputs from EXTINF durations and optional PDT tags.
     durations = [float(segment.duration) for segment in segments]
     sequence_start = getattr(playlist, "media_sequence", 0) or 0
     dates = [
@@ -84,6 +85,8 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
     approximate = first_date is None and sequence_start > 0
 
     if first_date is not None:
+        # Anchor at the first known PDT, then walk backward/forward to infer the
+        # rest while preserving monotonic, non-overlapping starts.
         starts = [None] * len(segments)
         starts[first_date] = dates[first_date].timestamp()
         for index in range(first_date - 1, -1, -1):
@@ -97,6 +100,7 @@ def get_playlist_timeline(playlist, folder_epoch, audio_offset):
             )
             starts[index] = max(program_date_time, previous_end)
     else:
+        # Without PDT, estimate starts from folder epoch and mean segment length.
         mean_duration = sum(durations) / len(durations)
         starts = []
         current_start = folder_epoch + audio_offset
@@ -148,6 +152,7 @@ def extrapolate_before(timeline, start_time, min_sequence=-1):
     if not match or mean_duration <= 0:
         return []
 
+    # Keep historical filename zero-padding behavior when synthesizing URLs.
     width = len(match.group(2)) if match.group(2).startswith("0") else 3
     base_uri = urlunsplit(
         (
@@ -205,10 +210,12 @@ def fill_timeline_gaps(
     mean_duration = sum(item.duration for item in timeline) / len(timeline)
     candidates = []
 
+    # Optionally infer missing leading segments before the first known entry.
     first = timeline[0]
     if extrapolate_start and first.sequence > 0 and first.start > start_time:
         candidates.extend(extrapolate_before(timeline, start_time))
 
+    # Infer interior gaps where sequence numbers jump but timing indicates room.
     for previous, following in zip(timeline, timeline[1:]):
         if following.sequence <= previous.sequence + 1:
             continue
@@ -225,6 +232,7 @@ def fill_timeline_gaps(
         )
 
     known_sequences = {item.sequence for item in timeline}
+    # Keep only inferred segments that overlap the request window and resolve.
     existing = [
         item
         for item in candidates
@@ -240,6 +248,7 @@ def select_segments_from_start(timeline, start_time, duration):
     """Select a contiguous clip beginning at the next segment start."""
     if not timeline:
         return []
+    # Reject clearly stale requests unless this looks like sequence-zero startup.
     if timeline[0].start > start_time + 1e-6 and (
         timeline[0].sequence > 0
         or timeline[0].start - start_time > timeline[0].duration
@@ -259,6 +268,7 @@ def select_segments_from_start(timeline, start_time, duration):
     selected = []
     elapsed = 0.0
     for item in timeline[start_index:]:
+        # Restart accumulation when sequence continuity is broken.
         if selected and item.sequence != selected[-1].sequence + 1:
             selected = []
             elapsed = 0.0
@@ -286,6 +296,7 @@ def select_segments_ending_at(timeline, end_time, duration):
 
     selected = []
     elapsed = 0.0
+    # Walk backward from the end boundary and stop on sequence discontinuity.
     for item in reversed(timeline[: end_index + 1]):
         if selected and item.sequence + 1 != selected[0].sequence:
             break
