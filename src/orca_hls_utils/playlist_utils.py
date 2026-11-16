@@ -146,6 +146,8 @@ def merge_timelines(*timelines):
 
 def select_segments_from_start(timeline, start_time, duration):
     """Select a contiguous clip beginning at the next segment start."""
+    if not timeline or timeline[0].start > start_time + 1e-6:
+        return []
     start_index = next(
         (
             index
@@ -171,6 +173,8 @@ def select_segments_from_start(timeline, start_time, duration):
 
 def select_segments_ending_at(timeline, end_time, duration):
     """Select a contiguous clip ending at the next segment boundary."""
+    if not timeline or timeline[0].start > end_time + 1e-6:
+        return []
     end_index = next(
         (
             index
