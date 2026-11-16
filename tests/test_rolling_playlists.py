@@ -31,10 +31,7 @@ def _playlist(
     ]
     for sequence in range(first, first + count):
         start = datetime.fromtimestamp(
-            FOLDER
-            + audio_offset
-            + sequence * 10
-            + program_date_time_offset,
+            FOLDER + audio_offset + sequence * 10 + program_date_time_offset,
             tz=timezone.utc,
         )
         lines.extend(
@@ -277,9 +274,9 @@ def test_hls_specific_clip_times(
     _, clip_start, clip_end = stream.get_next_clip(request_end)
 
     expected_start = (
-        datetime.fromtimestamp(
-            FOLDER + expected_start_offset, tz=timezone.utc
-        ).replace(tzinfo=None).isoformat()
+        datetime.fromtimestamp(FOLDER + expected_start_offset, tz=timezone.utc)
+        .replace(tzinfo=None)
+        .isoformat()
         + "Z"
         if expected_start_offset is not None
         else None
